@@ -401,6 +401,8 @@ test("overlay moves a playback stream onto a sink instead of pw-link", () => {
   assert.ok(src.indexOf("wireModel") >= 0)
   const store = fs.readFileSync(path.join(ROOT, "GraphStore.qml"), "utf8")
   assert.ok(store.indexOf("no audio ports on that node") >= 0)
+  const mv = store.split("function moveStream")[1].split("function linkPorts")[0]
+  assert.ok(mv.indexOf("store.linkNodes(streamId, sinkId)") >= 0)
 })
 
 test("simple view hides midi, duplex, monitors", () => {

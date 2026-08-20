@@ -380,6 +380,10 @@ Item {
       targetSerial: dst.serial,
       targetName: dst.name
     }))
+    // Metadata is sticky but WirePlumber will not create links while the
+    // stream is idle / the sink is suspended — so also pw-link the ports
+    // now or the overlay shows the toast with no cables.
+    store.linkNodes(streamId, sinkId)
     store.emitToast((src.nick || src.app || "stream") + " → " + (dst.nick || dst.name || "sink"), "info")
     return "ok"
   }
