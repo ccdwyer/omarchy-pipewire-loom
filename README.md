@@ -7,7 +7,7 @@ This is an Omarchy shell **bar-widget**. The graph is a nested panel, not a seco
 ## Install
 
 ```sh
-omarchy plugin add <git-url> --enable
+omarchy plugin add https://github.com/ccdwyer/omarchy-pipewire-loom.git --enable
 ```
 
 Then, on the machine, build the helper (optional — the widget works without it):
@@ -93,6 +93,12 @@ Day-1 gate (backend alone, no UI):
 ```sh
 compat/loom-cli.sh move <stream-id> <sink-object.serial-or-node.name>
 # On a PipeWire machine: restart the track; the route should stick.
+```
+
+## Remove
+
+```sh
+omarchy plugin remove io.github.chris.pipewire-loom
 ```
 
 ## Honest limitations
