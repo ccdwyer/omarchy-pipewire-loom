@@ -46,16 +46,21 @@ Click the bar chip (default sink + live stream count; red badge if a capture nod
 | `?` | Key overlay |
 | Right-click the chip | Toggle simple / full view without opening the panel |
 
-The plugin does **not** write `hyprland.conf`. Bind a key yourself:
+Super+Shift+A is Omarchy's ChatGPT bind, so Loom prefers Super+Shift+L. If that
+combo is free, a **keys** chip on the bar offers **Add keybindings**. That
+writes an `o.bind` line to `~/.config/hypr/bindings.lua` (Hyprland reloads on
+save). Combos you already use are skipped; Super+Shift+L falls back to
+Super+Alt+L. The plugin never unbinds someone else's shortcut.
 
 ```
-bind = SUPER SHIFT, A, exec, omarchy-shell io.github.chris.pipewire-loom toggle '{}'
+bind = SUPER SHIFT, L, exec, omarchy-shell io.github.chris.pipewire-loom toggle '{}'
 ```
 
 This plugin is a bar-widget only — do not `shell summon` or `shell call` it (`shell call` hits overlay/panel loaders; this plugin has neither). Click the chip, or the bar-widget `IpcHandler`:
 
 ```
 omarchy-shell io.github.chris.pipewire-loom toggle '{}'
+omarchy-shell io.github.chris.pipewire-loom installBinds ''
 ```
 
 ## Settings

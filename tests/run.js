@@ -66,6 +66,7 @@ const Layout = loadEngine("Layout.js")
 const SimpleView = loadEngine("SimpleView.js")
 const Commands = loadEngine("Commands.js")
 const Positions = loadEngine("Positions.js")
+const Binds = loadEngine("Binds.js")
 
 let passed = 0
 let failed = 0
@@ -492,6 +493,40 @@ test("readme: enable + defaultSection, no bar put / summon", () => {
   assert.ok(md.indexOf("omarchy bar put") < 0)
   assert.ok(md.indexOf("shell summon io.github.chris.pipewire-loom") < 0)
   assert.ok(md.indexOf("toggle '{}'") >= 0)
+})
+
+test("binds: empty live list offers SUPER+SHIFT+L", () => {
+  const p = Binds.plan([])
+  assert.strictEqual(p.needed, true)
+  assert.strictEqual(p.toAdd.length, 1)
+  assert.strictEqual(p.toAdd[0].chosen, "SUPER + SHIFT + L")
+  assert.ok(Binds.luaBlock(p.toAdd).indexOf("o.bind(\"SUPER + SHIFT + L\"") === 0)
+  assert.ok(p.toAdd[0].chosen !== "SUPER + SHIFT + A")
+})
+
+test("binds: stock ChatGPT SUPER+SHIFT+A is not stolen", () => {
+  const live = [
+    { modmask: 65, key: "A", dispatcher: "__lua", arg: "306", description: "ChatGPT" }
+  ]
+  const p = Binds.plan(live)
+  assert.strictEqual(p.toAdd[0].chosen, "SUPER + SHIFT + L")
+})
+
+test("binds: occupied preferred uses SUPER+ALT+L", () => {
+  const live = [
+    { modmask: 65, key: "L", dispatcher: "exec", arg: "other", description: "taken" }
+  ]
+  const p = Binds.plan(live)
+  assert.strictEqual(p.toAdd[0].chosen, "SUPER + ALT + L")
+})
+
+test("binds: already-ours via lua description hides the offer", () => {
+  const live = [
+    { modmask: 65, key: "L", dispatcher: "__lua", arg: "15", description: "PipeWire Loom" }
+  ]
+  const p = Binds.plan(live)
+  assert.strictEqual(p.needed, false)
+  assert.strictEqual(p.toAdd.length, 0)
 })
 
 test("move stickiness contract: command is metadata not pw-link", () => {

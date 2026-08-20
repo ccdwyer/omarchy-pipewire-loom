@@ -46,6 +46,6 @@ Conservative choices where the Omarchy / Quickshell / PipeWire API was not 100% 
 
 - Real per-route peak metering (tribunal rejected as v1).
 - A "demo scene" macro (tribunal rejected).
-- Writing Hyprland config.
+- Writing Hyprland config except an opt-in `Add keybindings` control that appends a marked `o.bind` block to `~/.config/hypr/bindings.lua` after checking `hyprctl -j binds`. Occupied combos are skipped or replaced with Super+Alt+L. Super+Shift+A (ChatGPT) is never stolen. Never `hl.unbind`.
 - A second Quickshell process.
 - The `omarchy.*` id namespace.

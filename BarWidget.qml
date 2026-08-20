@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import qs.Ui
+import "js/Binds.js" as Binds
 
 BarWidget {
   id: root
@@ -17,6 +18,11 @@ BarWidget {
   property var manifest: null
   property var pluginRegistry: null
   property string omarchyPath: Quickshell.env("OMARCHY_PATH") || ""
+  property bool offerBinds: false
+  property string offerNote: ""
+  property var workQueue: []
+  property var workCurrent: null
+  readonly property string pluginId: "io.github.chris.pipewire-loom"
 
   readonly property string pluginDir: {
     var u = String(Qt.resolvedUrl("."))
@@ -49,6 +55,59 @@ BarWidget {
       root.close()
     else
       root.open(payloadJson || "{}")
+  }
+
+  function applyBindPlan(plan) {
+    var p = plan || Binds.offer
+    root.offerBinds = !!p.needed
+    root.offerNote = String(p.note || "")
+    Binds.setOffer(p)
+  }
+
+  function enqueueWork(command, done) {
+    workQueue.push({ command: command, done: done || null })
+    runWork()
+  }
+
+  function runWork() {
+    if (workProc.running || root.workCurrent)
+      return
+    if (!workQueue.length)
+      return
+    root.workCurrent = workQueue.shift()
+    workProc.command = root.workCurrent.command
+    workProc.running = true
+  }
+
+  function scanBinds() {
+    enqueueWork(["hyprctl", "-j", "binds"], function(text, code) {
+      if (Number(code) !== 0)
+        return
+      root.applyBindPlan(Binds.applyScan(text))
+    })
+  }
+
+  function installBinds(arg) {
+    enqueueWork(["hyprctl", "-j", "binds"], function(text, code) {
+      if (Number(code) !== 0) {
+        root.offerNote = "could not read keybinds"
+        return
+      }
+      var plan = Binds.applyScan(text)
+      if (!plan.toAdd || !plan.toAdd.length) {
+        root.applyBindPlan(plan)
+        return
+      }
+      var lua = Binds.luaBlock(plan.toAdd)
+      enqueueWork(["python3", root.pluginDir + "/compat/install-binds.py", root.pluginId, lua], function(out, instCode) {
+        if (Number(instCode) !== 0) {
+          root.offerNote = "could not write ~/.config/hypr/bindings.lua"
+          return
+        }
+        Qt.callLater(root.scanBinds)
+      })
+    })
+    return "ok"
   }
 
   Theme { id: theme }
@@ -96,12 +155,15 @@ BarWidget {
     Panel {}
   }
 
-  implicitWidth: chip.implicitWidth
-  implicitHeight: chip.implicitHeight
+  implicitWidth: row.implicitWidth
+  implicitHeight: row.implicitHeight
+
+  Row {
+    id: row
+    spacing: Style.space(4)
 
   WidgetButton {
     id: chip
-    anchors.fill: parent
     bar: root.bar
     text: store.streamCount > 0
           ? ("🎚 " + store.defaultSinkNick + " · " + store.streamCount)
@@ -117,19 +179,61 @@ BarWidget {
       else if (buttonCode === Qt.RightButton)
         store.toggleSimple()
     }
+
+    Rectangle {
+      visible: store.captureLive
+      width: 7
+      height: 7
+      radius: 4
+      color: theme.danger
+      anchors.right: parent.right
+      anchors.top: parent.top
+      anchors.rightMargin: 2
+      anchors.topMargin: 2
+      z: 2
+    }
   }
 
-  Rectangle {
-    visible: store.captureLive
-    width: 7
-    height: 7
-    radius: 4
-    color: theme.danger
-    anchors.right: parent.right
-    anchors.top: parent.top
-    anchors.rightMargin: 2
-    anchors.topMargin: 2
-    z: 2
+    WidgetButton {
+      visible: root.offerBinds
+      bar: root.bar
+      text: "keys"
+      tooltipText: root.offerNote.length ? root.offerNote : "Add Super+Shift+L keybinding (skips combos you already use)"
+      onPressed: function(buttonCode) {
+        if (buttonCode === Qt.LeftButton)
+          root.installBinds("")
+      }
+    }
+  }
+
+  Process {
+    id: workProc
+    running: false
+    stdout: StdioCollector {
+      id: workOut
+      waitForEnd: true
+    }
+    onExited: function(exitCode) {
+      var text = workOut.text
+      var job = root.workCurrent
+      root.workCurrent = null
+      if (job && job.done) {
+        try {
+          job.done(text, exitCode)
+        } catch (e) {
+          console.warn("pipewire-loom: work callback failed", e)
+        }
+      }
+      root.runWork()
+    }
+  }
+
+  Timer {
+    id: bindScanTimer
+    interval: 3000
+    repeat: true
+    running: true
+    onTriggered: root.scanBinds()
   }
 
   IpcHandler {
@@ -140,6 +244,7 @@ BarWidget {
     function toggle(arg: string): string { root.toggle(arg && arg.length ? arg : "{}"); return "ok" }
     function summon(arg: string): string { root.open(arg && arg.length ? arg : "{}"); return "ok" }
     function ping(arg: string): string { return "ok" }
+    function installBinds(arg: string): string { return root.installBinds(arg) }
     function mute(arg: string): string { return store.muteSubgraph() }
     function spawnSink(arg: string): string { return store.spawnSink(arg) }
     function dump(arg: string): string { store.requestDump(); return "ok" }
@@ -152,8 +257,12 @@ BarWidget {
         capture: store.captureLive,
         sink: store.defaultSinkNick,
         gen: store.gen,
-        simple: store.simpleView
+        simple: store.simpleView,
+        bindOfferNeeded: root.offerBinds,
+        bindOfferNote: root.offerNote
       })
     }
   }
+
+  Component.onCompleted: Qt.callLater(root.scanBinds)
 }
