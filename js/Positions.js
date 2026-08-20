@@ -87,14 +87,15 @@ function get(state, identity) {
 }
 
 function set(state, identity, x, y) {
-    if (!state)
-        state = emptyState()
-    if (!state.positions)
-        state.positions = {}
-    if (!identity)
-        return state
-    state.positions[identity] = { x: x, y: y }
-    return state
+    var next = emptyState()
+    var src = (state && state.positions) || {}
+    var keys = Object.keys(src)
+    for (var i = 0; i < keys.length; i++)
+        next.positions[keys[i]] = src[keys[i]]
+    next.loomModules = (state && state.loomModules) || {}
+    if (identity && typeof x === "number" && typeof y === "number")
+        next.positions[identity] = { x: x, y: y }
+    return next
 }
 
 function clear(state, identity) {

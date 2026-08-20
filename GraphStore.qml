@@ -28,6 +28,8 @@ Item {
   property var wires: []
   property var positions: ({})
   property var loomModules: ({})
+  property bool dragging: false
+  property bool writingState: false
   property int canvasW: 960
   property int canvasH: 640
   property int revision: 0
@@ -182,6 +184,8 @@ Item {
   }
 
   function rebuild() {
+    if (store.dragging)
+      return
     var filtered = SimpleView.filter(store.raw, store.simpleView)
     var laid = Layout.layout(filtered.nodes, filtered.ports, store.positions)
     store.viewNodes = laid.nodes
@@ -466,7 +470,8 @@ Item {
     if (!node)
       return
     var ident = node.identity || Positions.identityOf(node, store.raw.nodes)
-    store.positions = Positions.set({ positions: store.positions, loomModules: store.loomModules }, ident, x, y).positions
+    var next = Positions.set({ positions: store.positions, loomModules: store.loomModules }, ident, x, y)
+    store.positions = next.positions
     node.x = x
     node.y = y
     node.userPlaced = true
@@ -506,8 +511,12 @@ Item {
     if (!stateFile.path)
       return
     try {
+      store.writingState = true
       stateFile.setText(Positions.serialize({ positions: store.positions, loomModules: store.loomModules }))
-    } catch (e) {}
+      Qt.callLater(function () { store.writingState = false })
+    } catch (e) {
+      store.writingState = false
+    }
   }
 
   FileView {
@@ -516,7 +525,11 @@ Item {
     atomicWrites: true
     printErrors: false
     watchChanges: false
-    onLoaded: store.loadStateText(text())
+    onLoaded: {
+      if (store.writingState)
+        return
+      store.loadStateText(text())
+    }
     onLoadFailed: {
       if (!store.statePath)
         return

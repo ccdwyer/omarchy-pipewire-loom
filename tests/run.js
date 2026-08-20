@@ -351,6 +351,25 @@ test("layout copies nodes so QML can see x/y updates", () => {
   assert.ok(typeof vis.x === "number")
 })
 
+test("positions set copies the map so a drop survives rebuild", () => {
+  const a = Positions.emptyState()
+  const b = Positions.set(a, "Google Chrome|Stream/Output/Audio|0", 228, 111)
+  assert.strictEqual(a.positions["Google Chrome|Stream/Output/Audio|0"], undefined)
+  assert.strictEqual(b.positions["Google Chrome|Stream/Output/Audio|0"].x, 228)
+  assert.strictEqual(b.positions["Google Chrome|Stream/Output/Audio|0"].y, 111)
+  const g = PwDump.parse(fixture("pwdump-simple.json"))
+  const ident = g.nodes.find((n) => n.id === 77).identity
+  const pos = Positions.set(Positions.emptyState(), ident, 400, 220).positions
+  const laid = Layout.layout(g.nodes, g.ports, pos)
+  const src = laid.nodes.find((n) => n.id === 77)
+  assert.strictEqual(src.x, 400)
+  const store = fs.readFileSync(path.join(ROOT, "GraphStore.qml"), "utf8")
+  assert.ok(store.indexOf("if (store.dragging)") >= 0)
+  assert.ok(store.indexOf("writingState") >= 0)
+  const del = fs.readFileSync(path.join(ROOT, "NodeDelegate.qml"), "utf8")
+  assert.ok(del.indexOf("drag.active is already false") >= 0)
+})
+
 test("node boxes move their Item on drag, not only JS x/y", () => {
   const src = fs.readFileSync(path.join(ROOT, "NodeDelegate.qml"), "utf8")
   assert.ok(src.indexOf("drag.target: node") >= 0)

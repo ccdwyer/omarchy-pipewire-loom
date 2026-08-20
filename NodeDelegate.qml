@@ -114,8 +114,8 @@ Item {
       node.bodyDragged(node.nodeData, node.x, node.y)
     }
     onReleased: function (ev) {
-      if (body.drag.active)
-        node.bodyDragged(node.nodeData, node.x, node.y)
+      // drag.active is already false here; still persist the Item's x/y.
+      node.bodyDragged(node.nodeData, node.x, node.y)
       node.bodyReleased(node.nodeData)
     }
     onClicked: function (ev) {

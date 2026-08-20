@@ -128,6 +128,8 @@ Item {
     }
     root.dragKind = "node"
     root.dragNode = nodeData
+    if (root.store)
+      root.store.dragging = true
   }
 
   function handleBodyDragged(nodeData, nx, ny) {
@@ -144,8 +146,11 @@ Item {
 
   function handleBodyReleased(nodeData) {
     if (root.dragKind === "node") {
-      if (root.store)
+      if (root.store) {
         root.store.persistPosition(nodeData.id, nodeData.x, nodeData.y, true)
+        root.store.dragging = false
+        root.store.rebuild()
+      }
       var target = root.nodeAt(nodeData.x + nodeData.w / 2, nodeData.y + nodeData.h / 2)
       // After a drag, also hit-test other nodes under the pointer via last ghost? 
       // Node-on-node move: if this node overlaps another sink, treat as drop.
