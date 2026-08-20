@@ -183,7 +183,18 @@ Item {
       fromNode = nodeData.id
       toNode = root.dragPort.node
     }
-    root.store.linkNodes(fromNode, toNode)
+    var src = root.store.nodeById(fromNode)
+    var dst = root.store.nodeById(toNode)
+    var srcPlay = src && String(src.mediaClass || "").indexOf("Stream/Output") === 0
+    var dstPlay = dst && String(dst.mediaClass || "").indexOf("Stream/Output") === 0
+    var srcSink = src && (src.kind === "sink" || String(src.mediaClass || "").indexOf("Audio/Sink") === 0)
+    var dstSink = dst && (dst.kind === "sink" || String(dst.mediaClass || "").indexOf("Audio/Sink") === 0)
+    if (srcPlay && dstSink)
+      root.store.moveStream(fromNode, toNode)
+    else if (dstPlay && srcSink)
+      root.store.moveStream(toNode, fromNode)
+    else
+      root.store.linkNodes(fromNode, toNode)
     root.cancelDrag()
   }
 
@@ -460,16 +471,27 @@ Item {
               scale: root.viewScale
               transformOrigin: Item.TopLeft
 
+              readonly property var wireModel: {
+                var _ = root.store ? root.store.revision : 0
+                return (root.store && root.store.wires) ? root.store.wires : []
+              }
+              readonly property var nodeModel: {
+                var _ = root.store ? root.store.revision : 0
+                return (root.store && root.store.viewNodes) ? root.store.viewNodes : []
+              }
+
               // Wires under nodes.
               Repeater {
-                model: root.store ? root.store.wires : []
+                model: canvas.wireModel
                 delegate: Item {
                   required property var modelData
+                  x: 0
+                  y: 0
                   width: canvas.width
                   height: canvas.height
                   Shape {
                     anchors.fill: parent
-                    preferredRendererType: Shape.CurveRenderer
+                    preferredRendererType: Shape.GeometryRenderer
                     opacity: modelData.muted ? 0.32 : 1
                     ShapePath {
                       strokeWidth: modelData.live ? 2.6 : 1.4
@@ -507,7 +529,7 @@ Item {
                 visible: root.ghostOn
                 width: canvas.width
                 height: canvas.height
-                preferredRendererType: Shape.CurveRenderer
+                preferredRendererType: Shape.GeometryRenderer
                 ShapePath {
                   strokeWidth: 2
                   strokeColor: root.pal.accent
@@ -529,7 +551,7 @@ Item {
 
               Repeater {
                 id: nodeRepeater
-                model: root.store ? root.store.viewNodes : []
+                model: canvas.nodeModel
                 delegate: NodeDelegate {
                   required property var modelData
                   required property int index

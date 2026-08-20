@@ -339,6 +339,27 @@ test("layout: sources left, sinks right, serial order, user pos wins", () => {
   assert.strictEqual(src2.userPlaced, true)
 })
 
+test("layout copies nodes so QML can see x/y updates", () => {
+  const g = PwDump.parse(fixture("pwdump-simple.json"))
+  const before = g.nodes.find((n) => n.id === 77)
+  assert.strictEqual(before.x, undefined)
+  const laid = Layout.layout(g.nodes, g.ports, {})
+  const after = g.nodes.find((n) => n.id === 77)
+  assert.strictEqual(after.x, undefined, "layout must not mutate raw graph nodes")
+  const vis = laid.nodes.find((n) => n.id === 77)
+  assert.ok(vis !== after)
+  assert.ok(typeof vis.x === "number")
+})
+
+test("overlay moves a playback stream onto a sink instead of pw-link", () => {
+  const src = fs.readFileSync(path.join(ROOT, "LoomOverlay.qml"), "utf8")
+  assert.ok(src.indexOf("moveStream") >= 0)
+  assert.ok(src.indexOf("Stream/Output") >= 0)
+  assert.ok(src.indexOf("wireModel") >= 0)
+  const store = fs.readFileSync(path.join(ROOT, "GraphStore.qml"), "utf8")
+  assert.ok(store.indexOf("no audio ports on that node") >= 0)
+})
+
 test("simple view hides midi, duplex, monitors", () => {
   const g = PwDump.parse(fixture("pwdump-chrome-mess.json"))
   const full = SimpleView.filter(g, false)

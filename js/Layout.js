@@ -50,14 +50,25 @@ function overlap(a, b) {
         && a.y < b.y + b.h && a.y + a.h > b.y
 }
 
+function copyNode(n) {
+    var o = {}
+    if (!n)
+        return o
+    var keys = Object.keys(n)
+    for (var i = 0; i < keys.length; i++)
+        o[keys[i]] = n[keys[i]]
+    return o
+}
+
 function layout(nodes, ports, positions) {
     var list = nodes || []
     var cols = [[], [], []]
     var i
     for (i = 0; i < list.length; i++) {
-        countPorts(list[i], ports)
-        var r = rankOf(list[i].kind)
-        cols[r].push(list[i])
+        var copy = copyNode(list[i])
+        countPorts(copy, ports)
+        var r = rankOf(copy.kind)
+        cols[r].push(copy)
     }
     for (var c = 0; c < 3; c++) {
         cols[c].sort(function (a, b) {
@@ -67,6 +78,7 @@ function layout(nodes, ports, positions) {
         })
     }
     var placed = []
+    var out = []
     var maxY = ORIGIN_Y
     var maxX = ORIGIN_X + COL_GAP * 2 + NODE_W
     for (c = 0; c < 3; c++) {
@@ -104,6 +116,7 @@ function layout(nodes, ports, positions) {
                 guard++
             }
             placed.push({ x: n.x, y: n.y, h: n.h, id: n.id })
+            out.push(n)
             if (n.y + h > maxY)
                 maxY = n.y + h
             if (n.x + NODE_W > maxX)
@@ -111,7 +124,7 @@ function layout(nodes, ports, positions) {
         }
     }
     return {
-        nodes: list,
+        nodes: out,
         width: maxX + ORIGIN_X,
         height: maxY + ORIGIN_Y
     }

@@ -350,7 +350,8 @@ Item {
       }
       store.highlightPortIds = ids
       store.highlight(ids)
-      store.emitToast("ambiguous map (" + (mapped.detail || "") + ")", "warn")
+      var detail = mapped.detail || ""
+      store.emitToast(detail === "no ports" ? "no audio ports on that node" : ("ambiguous map (" + detail + ")"), "warn")
       return "ambiguous"
     }
     store.highlightPortIds = []
