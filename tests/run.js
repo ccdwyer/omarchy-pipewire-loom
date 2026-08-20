@@ -626,6 +626,19 @@ test("bar widget loads LoomOverlay.qml, not the host qs.Ui Panel type", () => {
   assert.ok(overlay.indexOf("visible: root.opened") >= 0)
 })
 
+test("unlink uses pw-link -d link-id and clears stream target.object", () => {
+  const byId = Commands.argvFor("unlink", { link: 78, from: 74, to: 57 })
+  assert.ok(byId)
+  assert.deepStrictEqual(byId.primary, ["pw-link", "-d", "78"])
+  const clr = Commands.argvFor("clearTarget", { stream: 39 })
+  assert.deepStrictEqual(clr.primary, ["pw-metadata", "-n", "default", "-d", "39", "target.object"])
+  const store = fs.readFileSync(path.join(ROOT, "GraphStore.qml"), "utf8")
+  assert.ok(store.indexOf("clearTarget") >= 0)
+  const overlay = fs.readFileSync(path.join(ROOT, "LoomOverlay.qml"), "utf8")
+  assert.ok(overlay.indexOf('sequence: "X"') >= 0)
+  assert.ok(overlay.indexOf('sequence: "Backspace"') >= 0)
+})
+
 test("move stickiness contract: command is metadata not pw-link", () => {
   const argv = Commands.argvFor("move", { stream: 88, target: 66, targetSerial: 12004, targetName: "bluez_out" })
   assert.ok(argv)

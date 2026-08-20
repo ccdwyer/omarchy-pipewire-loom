@@ -40,12 +40,15 @@ function linkPorts(fromId, toId) {
 }
 
 function unlinkPorts(fromId, toId) {
-    return { primary: ["pw-link", "-d", "-I", String(fromId), String(toId)] }
+    return { primary: ["pw-link", "-d", String(fromId), String(toId)] }
 }
 
 function unlinkId(linkId) {
-    // pw-link cannot destroy by link id on every build; caller should pass ports.
-    return { primary: ["pw-cli", "destroy", String(linkId)] }
+    return { primary: ["pw-link", "-d", String(linkId)] }
+}
+
+function clearTarget(streamId) {
+    return { primary: ["pw-metadata", "-n", "default", "-d", String(streamId), "target.object"] }
 }
 
 function volume(nodeId, vol) {
@@ -195,10 +198,12 @@ function argvFor(op, cmd) {
     }
     if (op === "link" && cmd.from !== undefined && cmd.to !== undefined)
         return linkPorts(cmd.from, cmd.to)
-    if (op === "unlink" && cmd.from !== undefined && cmd.to !== undefined)
-        return unlinkPorts(cmd.from, cmd.to)
+    if (op === "clearTarget")
+        return clearTarget(cmd.stream)
     if (op === "unlink" && cmd.link !== undefined)
         return unlinkId(cmd.link)
+    if (op === "unlink" && cmd.from !== undefined && cmd.to !== undefined)
+        return unlinkPorts(cmd.from, cmd.to)
     if (op === "volume")
         return volume(cmd.node, cmd.vol)
     if (op === "mute" || op === "muteSubgraph")

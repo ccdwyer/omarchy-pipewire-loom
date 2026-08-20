@@ -274,8 +274,9 @@ function findPort(state, id) {
 
 function findLink(state, id) {
     var list = state && state.links ? state.links : []
+    var want = Number(id)
     for (var i = 0; i < list.length; i++) {
-        if (list[i].id === id)
+        if (list[i].id === id || Number(list[i].id) === want)
             return list[i]
     }
     return null

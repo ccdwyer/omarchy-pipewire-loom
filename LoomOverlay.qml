@@ -122,6 +122,7 @@ Item {
   function handleBodyPressed(nodeData) {
     if (root.store)
       root.store.select(nodeData.id)
+    keyCatcher.forceActiveFocus()
     if (root.dragKind === "link-wait") {
       root.finishLinkToNode(nodeData)
       return
@@ -393,6 +394,22 @@ Item {
         focus: true
         Keys.priority: Keys.BeforeItem
         Keys.onPressed: function (event) { root.onKey(event) }
+      }
+
+      Shortcut {
+        enabled: root.opened
+        sequence: "X"
+        onActivated: if (root.store) root.store.unlinkSelected()
+      }
+      Shortcut {
+        enabled: root.opened
+        sequence: "Backspace"
+        onActivated: if (root.store) root.store.unlinkSelected()
+      }
+      Shortcut {
+        enabled: root.opened
+        sequence: "Delete"
+        onActivated: if (root.store) root.store.unlinkSelected()
       }
 
       Column {

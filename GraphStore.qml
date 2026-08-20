@@ -418,14 +418,32 @@ Item {
 
   function unlinkSelected() {
     var id = store.selectedId
+    if (id === undefined || id === null || Number(id) < 0) {
+      store.emitToast("select a node first", "info")
+      return "none"
+    }
+    var want = Number(id)
     var links = store.viewLinks || []
+    var n = 0
+    var cleared = {}
     for (var i = 0; i < links.length; i++) {
-      if (links[i].fromNode === id || links[i].toNode === id)
-        store.unlink(links[i].id)
+      var l = links[i]
+      if (Number(l.fromNode) !== want && Number(l.toNode) !== want)
+        continue
+      var src = Graph.findNode(store.raw, l.fromNode)
+      if (src && String(src.mediaClass || "").indexOf("Stream/Output") === 0 && !cleared[l.fromNode]) {
+        cleared[l.fromNode] = true
+        store.send(Schema.makeCommand("clearTarget", { stream: l.fromNode }))
+      }
+      store.unlink(l.id)
+      n++
     }
     var node = store.nodeById(id)
     if (node && node.isLoom)
       store.destroySink(node.name || node.nick)
+    else if (n === 0)
+      store.emitToast("no links on that node", "info")
+    return n ? "ok" : "none"
   }
 
   function setVolume(nodeId, vol) {
