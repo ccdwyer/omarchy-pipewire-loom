@@ -27,14 +27,11 @@ Item {
 
   width: nodeData && nodeData.w ? nodeData.w : 196
   height: nodeData && nodeData.h ? nodeData.h : 88
-  // x/y are NOT bound to nodeData.x/y: QML does not see JS field mutations,
-  // so a binding here leaves the box stuck while persistPosition moves wires.
-  x: 0
-  y: 0
   opacity: 1
+  z: body.drag.active ? 20 : 0
 
   function applyLayout() {
-    if (body && body.dragging)
+    if (body && body.drag && body.drag.active)
       return
     x = (nodeData && nodeData.x !== undefined) ? nodeData.x : 0
     y = (nodeData && nodeData.y !== undefined) ? nodeData.y : 0
@@ -102,30 +99,24 @@ Item {
     hoverEnabled: true
     acceptedButtons: Qt.LeftButton | Qt.RightButton
     preventStealing: true
-    property real grabX: 0
-    property real grabY: 0
-    property bool dragging: false
+    drag.target: node
+    drag.axis: Drag.XAndYAxis
+    drag.threshold: 4
+    drag.minimumX: 0
+    drag.minimumY: 0
+    drag.smoothed: false
     onPressed: function (ev) {
-      body.grabX = ev.x
-      body.grabY = ev.y
-      body.dragging = false
       node.bodyPressed(node.nodeData, ev.x, ev.y)
     }
     onPositionChanged: function (ev) {
-      if (!(ev.buttons & Qt.LeftButton))
+      if (!body.drag.active)
         return
-      var dx = ev.x - body.grabX
-      var dy = ev.y - body.grabY
-      if (!body.dragging && (Math.abs(dx) + Math.abs(dy) < 4))
-        return
-      body.dragging = true
-      node.x += dx
-      node.y += dy
       node.bodyDragged(node.nodeData, node.x, node.y)
     }
     onReleased: function (ev) {
+      if (body.drag.active)
+        node.bodyDragged(node.nodeData, node.x, node.y)
       node.bodyReleased(node.nodeData)
-      body.dragging = false
     }
     onClicked: function (ev) {
       if (ev.button === Qt.RightButton && node.store)

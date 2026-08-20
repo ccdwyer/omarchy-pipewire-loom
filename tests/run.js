@@ -353,7 +353,7 @@ test("layout copies nodes so QML can see x/y updates", () => {
 
 test("node boxes move their Item on drag, not only JS x/y", () => {
   const src = fs.readFileSync(path.join(ROOT, "NodeDelegate.qml"), "utf8")
-  assert.ok(src.indexOf("node.x += dx") >= 0)
+  assert.ok(src.indexOf("drag.target: node") >= 0)
   assert.ok(src.indexOf("x: nodeData") < 0)
   assert.ok(src.indexOf("function applyLayout()") >= 0)
   const overlay = fs.readFileSync(path.join(ROOT, "LoomOverlay.qml"), "utf8")

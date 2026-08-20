@@ -461,7 +461,7 @@ Item {
     return "ok"
   }
 
-  function persistPosition(nodeId, x, y) {
+  function persistPosition(nodeId, x, y, save) {
     var node = store.nodeById(nodeId)
     if (!node)
       return
@@ -472,7 +472,8 @@ Item {
     node.userPlaced = true
     store.wires = store.buildWires(store.viewNodes, store.viewPorts, store.viewLinks)
     store.bump()
-    store.saveState()
+    if (save !== false)
+      store.saveState()
   }
 
   function rememberModule(name, moduleId) {
