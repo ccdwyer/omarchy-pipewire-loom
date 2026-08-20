@@ -183,11 +183,19 @@ Item {
     store.applyEvent(d.event)
   }
 
+  function plainPositions() {
+    try {
+      return JSON.parse(JSON.stringify(store.positions || {}))
+    } catch (e) {
+      return {}
+    }
+  }
+
   function rebuild() {
     if (store.dragging)
       return
     var filtered = SimpleView.filter(store.raw, store.simpleView)
-    var laid = Layout.layout(filtered.nodes, filtered.ports, store.positions)
+    var laid = Layout.layout(filtered.nodes, filtered.ports, store.plainPositions())
     store.viewNodes = laid.nodes
     store.viewPorts = filtered.ports
     store.viewLinks = filtered.links
@@ -470,7 +478,9 @@ Item {
     if (!node)
       return
     var ident = node.identity || Positions.identityOf(node, store.raw.nodes)
-    var next = Positions.set({ positions: store.positions, loomModules: store.loomModules }, ident, x, y)
+    var cur = store.plainPositions()
+    var next = Positions.set({ positions: cur, loomModules: store.loomModules }, ident, x, y)
+    next.positions["id:" + nodeId] = { x: x, y: y }
     store.positions = next.positions
     node.x = x
     node.y = y
@@ -531,7 +541,11 @@ Item {
       store.loadStateText(text())
     }
     onLoadFailed: {
+      if (store.writingState)
+        return
       if (!store.statePath)
+        return
+      if (Object.keys(store.plainPositions()).length)
         return
       store.loadStateText("{}")
     }

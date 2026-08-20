@@ -147,9 +147,11 @@ Item {
   function handleBodyReleased(nodeData) {
     if (root.dragKind === "node") {
       if (root.store) {
+        // Persist the drop into viewNodes + positions, then redraw wires
+        // from those same nodes. Do NOT rebuild() from raw here: that
+        // relayouts to the default columns and snaps the cables back.
         root.store.persistPosition(nodeData.id, nodeData.x, nodeData.y, true)
         root.store.dragging = false
-        root.store.rebuild()
       }
       var target = root.nodeAt(nodeData.x + nodeData.w / 2, nodeData.y + nodeData.h / 2)
       // After a drag, also hit-test other nodes under the pointer via last ghost? 

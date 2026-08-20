@@ -7,7 +7,8 @@
 function appOf(node) {
     if (!node)
         return "unknown"
-    return String(node.app || node.nick || node.name || "unknown")
+    // Match PwDump.stampIdentities: app || name (not nick).
+    return String(node.app || node.name || "unknown")
 }
 
 function identityOf(node, nodes) {

@@ -89,6 +89,8 @@ function layout(nodes, ports, positions) {
             var x = ORIGIN_X + c * COL_GAP
             var ident = n.identity
             var user = ident && positions && positions[ident] ? positions[ident] : null
+            if (!user && positions && n.id !== undefined)
+                user = positions["id:" + n.id] || null
             if (user && typeof user.x === "number" && typeof user.y === "number") {
                 n.x = user.x
                 n.y = user.y

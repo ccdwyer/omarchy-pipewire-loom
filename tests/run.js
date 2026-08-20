@@ -351,6 +351,14 @@ test("layout copies nodes so QML can see x/y updates", () => {
   assert.ok(typeof vis.x === "number")
 })
 
+test("layout applies id: backup when identity misses", () => {
+  const g = PwDump.parse(fixture("pwdump-simple.json"))
+  const laid = Layout.layout(g.nodes, g.ports, { "id:77": { x: 12, y: 34 } })
+  const src = laid.nodes.find((n) => n.id === 77)
+  assert.strictEqual(src.x, 12)
+  assert.strictEqual(src.y, 34)
+})
+
 test("positions set copies the map so a drop survives rebuild", () => {
   const a = Positions.emptyState()
   const b = Positions.set(a, "Google Chrome|Stream/Output/Audio|0", 228, 111)
@@ -366,8 +374,12 @@ test("positions set copies the map so a drop survives rebuild", () => {
   const store = fs.readFileSync(path.join(ROOT, "GraphStore.qml"), "utf8")
   assert.ok(store.indexOf("if (store.dragging)") >= 0)
   assert.ok(store.indexOf("writingState") >= 0)
+  assert.ok(store.indexOf("plainPositions") >= 0)
   const del = fs.readFileSync(path.join(ROOT, "NodeDelegate.qml"), "utf8")
   assert.ok(del.indexOf("drag.active is already false") >= 0)
+  const overlay = fs.readFileSync(path.join(ROOT, "LoomOverlay.qml"), "utf8")
+  const rel = overlay.split("function handleBodyReleased")[1].split("function handlePortPressed")[0]
+  assert.ok(rel.indexOf("rebuild()") < 0, "drop must not relayout from raw graph")
 })
 
 test("node boxes move their Item on drag, not only JS x/y", () => {
