@@ -148,22 +148,23 @@ BarWidget {
     panelOpen: root.opened
   }
 
+  // qs.Ui exports a type named Panel (host bar-popout). Instantiating
+  // that type, or loading a bare "Panel.qml" path, hits the host popout,
+  // so Super+Shift+L toggled qs.Ui.Panel.opened and never mapped
+  // pipewire-loom. LoomOverlay.qml is a unique filename to avoid that.
   Loader {
     id: panelLoader
     active: true
-    sourceComponent: panelComp
+    source: Qt.resolvedUrl("LoomOverlay.qml")
     onLoaded: {
-      if (item) {
-        item.store = store
-        item.theme = theme
-        item.shell = root.shell
+      if (!item || item.store === undefined) {
+        console.warn("pipewire-loom: overlay loader did not get LoomOverlay")
+        return
       }
+      item.store = store
+      item.theme = theme
+      item.shell = root.shell
     }
-  }
-
-  Component {
-    id: panelComp
-    Panel {}
   }
 
   implicitWidth: row.implicitWidth

@@ -553,6 +553,15 @@ test("qml: no keys chip; bar widget auto-claims", () => {
   assert.ok(src.indexOf("notifyArgv(") >= 0)
 })
 
+test("bar widget loads LoomOverlay.qml, not the host qs.Ui Panel type", () => {
+  const src = fs.readFileSync(path.join(ROOT, "BarWidget.qml"), "utf8")
+  assert.ok(src.indexOf('Qt.resolvedUrl("LoomOverlay.qml")') >= 0)
+  assert.ok(!/\bPanel\s*\{/.test(src), "bare Panel { } is qs.Ui.Panel, not the overlay")
+  const overlay = fs.readFileSync(path.join(ROOT, "LoomOverlay.qml"), "utf8")
+  assert.ok(overlay.indexOf('WlrLayershell.namespace: "pipewire-loom"') >= 0)
+  assert.ok(overlay.indexOf("visible: root.opened") >= 0)
+})
+
 test("move stickiness contract: command is metadata not pw-link", () => {
   const argv = Commands.argvFor("move", { stream: 88, target: 66, targetSerial: 12004, targetName: "bluez_out" })
   assert.ok(argv)

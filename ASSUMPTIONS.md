@@ -4,7 +4,7 @@ Conservative choices where the Omarchy / Quickshell / PipeWire API was not 100% 
 
 ## Plugin host (Quattro reference wins)
 
-- **Kinds / entryPoints follow the spec exactly:** `["bar-widget"]` / `{ "barWidget": "BarWidget.qml" }`. The graph is a nested `Panel.qml` loaded from the widget, not a separate `panel` kind. The reference documents `summon` for panel/overlay plugins; a bar-widget may not be summonable. `shell call` hits overlay/panel loaders and returns `unknown` here. README therefore documents `omarchy-shell io.github.chris.pipewire-loom toggle '{}'` (bar-widget IpcHandler) as the keybind, plus click-the-chip. `open()` / `close()` / `toggle()` are still implemented so a future host mapping works.
+- **Kinds / entryPoints follow the spec exactly:** `["bar-widget"]` / `{ "barWidget": "BarWidget.qml" }`. The graph is a nested `LoomOverlay.qml` loaded from the widget (`Qt.resolvedUrl`, never the host `qs.Ui` Panel type), not a separate `panel` kind. The reference documents `summon` for panel/overlay plugins; a bar-widget may not be summonable. `shell call` hits overlay/panel loaders and returns `unknown` here. README therefore documents `omarchy-shell io.github.chris.pipewire-loom toggle '{}'` (bar-widget IpcHandler) as the keybind, plus click-the-chip. `open()` / `close()` / `toggle()` are still implemented so a future host mapping works.
 - **`barWidget` metadata block** (displayName, category, defaultSection, defaults, schema) is required by the Quattro reference whenever `kinds` includes `bar-widget`. The spec example omitted it. Added. Settings (`simpleView`, `pollMs`, `virtualSinks`) arrive **inline on the shell.json entry**, not from a plugin config file.
 - **`keepLoaded: true`** is set even though the only kind is bar-widget. The nested `PanelWindow` and the backend `Process` should survive close. Bar widgets on the bar are already kept loaded; this is belt-and-suspenders if the host honours the flag for nested windows.
 - **Injected properties** on load: `omarchyPath`, `shell`, `manifest`, `pluginRegistry`, `bar`. Same as first-party clipboard / clock. The widget still runs if some are missing.
@@ -40,7 +40,7 @@ Conservative choices where the Omarchy / Quickshell / PipeWire API was not 100% 
 - **destroySink / destroy-module** always require **both** a `Loom-*` name and a module id, then verify the live exact match. There is no id-only unload path.
 - IpcHandler methods follow `call <id> <method> <arg>` and all take `arg: string` (including `toggle`).
 - Port-to-port drag maps `MouseArea` `ev.x`/`ev.y` into the graph canvas (`mapToItem`). Port MouseAreas do not set `preventStealing`, so the pointer is not glued to the port center.
-- Nested `Panel.qml` declares `moduleName: "io.github.chris.pipewire-loom"` to match the bar widget.
+- Nested `LoomOverlay.qml` declares `moduleName: "io.github.chris.pipewire-loom"` to match the bar widget. The file is not named Panel.qml because `import qs.Ui` already exports that type.
 
 ## Out of scope (intentional)
 
