@@ -637,8 +637,14 @@ test("link uses port names, not pw-link -I", () => {
   assert.ok(argv.primary.join(" ").indexOf("pw-link -I") < 0)
   assert.strictEqual(argv.primary[0], "pw-link")
   assert.strictEqual(argv.primary[1], "Google Chrome:output_FL")
+  const analog = { name: "alsa_input.pci-0000_00_1f.3.analog-stereo", nick: "ALC1220 Analog" }
+  const cap = { name: "capture_FL", alias: "ALC1220 Analog:capture_FL" }
+  assert.strictEqual(Commands.portLinkName(analog, cap), "alsa_input.pci-0000_00_1f.3.analog-stereo:capture_FL")
   const src = fs.readFileSync(path.join(ROOT, "NodeDelegate.qml"), "utf8")
   assert.ok(src.indexOf("preventStealing: true") >= 0)
+  assert.ok(src.indexOf("Title strip only") >= 0)
+  const overlay = fs.readFileSync(path.join(ROOT, "LoomOverlay.qml"), "utf8")
+  assert.ok(overlay.indexOf("nodeRepeater.itemAt") >= 0)
 })
 
 test("unlink uses pw-link -d link-id and clears stream target.object", () => {

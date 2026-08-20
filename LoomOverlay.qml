@@ -63,45 +63,44 @@ Item {
   }
 
   function nodeAt(gx, gy) {
-    if (!root.store)
+    if (!nodeRepeater)
       return null
-    var nodes = root.store.viewNodes || []
-    for (var i = nodes.length - 1; i >= 0; i--) {
-      var n = nodes[i]
-      if (gx >= n.x && gx <= n.x + n.w && gy >= n.y && gy <= n.y + n.h)
-        return n
+    for (var i = nodeRepeater.count - 1; i >= 0; i--) {
+      var item = nodeRepeater.itemAt(i)
+      if (!item || !item.nodeData)
+        continue
+      if (gx >= item.x && gx <= item.x + item.width && gy >= item.y && gy <= item.y + item.height)
+        return item.nodeData
     }
     return null
   }
 
   function portAt(gx, gy) {
-    if (!root.store)
+    if (!nodeRepeater)
       return null
-    var nodes = root.store.viewNodes || []
-    var ports = root.store.viewPorts || []
-    var byNode = {}
-    var i
-    for (i = 0; i < nodes.length; i++)
-      byNode[nodes[i].id] = nodes[i]
     var best = null
-    var bestD = 14
-    for (i = 0; i < ports.length; i++) {
-      var p = ports[i]
-      if (p.monitor)
+    var bestD = 20
+    for (var i = 0; i < nodeRepeater.count; i++) {
+      var item = nodeRepeater.itemAt(i)
+      if (!item)
         continue
-      var node = byNode[p.node]
-      if (!node)
-        continue
-      var count = Layout.countDir(node, ports, p.dir)
-      var idx = Layout.indexOfPort(node, ports, p.id, p.dir)
-      var a = Layout.portAnchor(node, p, idx, count, p.dir)
-      var dx = gx - a.x
-      var dy = gy - a.y
-      var d = Math.sqrt(dx * dx + dy * dy)
-      if (d <= bestD) {
-        bestD = d
-        best = p
+      function consider(ports, dir) {
+        if (!ports)
+          return
+        for (var j = 0; j < ports.length; j++) {
+          var px = dir === "in" ? item.x : item.x + item.width
+          var py = item.y + item.portY(j, ports.length) + 12
+          var dx = gx - px
+          var dy = gy - py
+          var d = Math.sqrt(dx * dx + dy * dy)
+          if (d <= bestD) {
+            bestD = d
+            best = ports[j]
+          }
+        }
       }
+      consider(item.inPorts, "in")
+      consider(item.outPorts, "out")
     }
     return best
   }

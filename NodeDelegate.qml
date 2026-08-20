@@ -95,7 +95,11 @@ Item {
 
   MouseArea {
     id: body
-    anchors.fill: parent
+    // Title strip only — a full-card drag.target steals port-to-port drawing.
+    height: 40
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: parent.top
     hoverEnabled: true
     acceptedButtons: Qt.LeftButton | Qt.RightButton
     preventStealing: true

@@ -36,12 +36,16 @@ function move(streamId, targetKey) {
 }
 
 function portLinkName(node, port) {
-    if (port && port.alias && String(port.alias).indexOf(":") >= 0)
-        return String(port.alias)
-    var n = node && (node.name || node.nick) ? String(node.name || node.nick) : ""
+    // pw-link lists `node.name:port.name` (alsa_output.…:playback_FL), not the
+    // human nick alias (`ALC1220 Digital:playback_FL`).
     var p = port && port.name ? String(port.name) : ""
+    if (p.indexOf(":") >= 0)
+        return p
+    var n = node && node.name ? String(node.name) : ""
     if (n && p)
         return n + ":" + p
+    if (port && port.alias)
+        return String(port.alias)
     return ""
 }
 
