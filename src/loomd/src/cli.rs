@@ -198,17 +198,23 @@ pub fn handle_command(g: &Graph, cmd: &Command) -> Value {
         }
         "destroySink" => {
             let name = cmd.name.clone().unwrap_or_default();
-            if !name.starts_with("Loom-") && cmd.module_id.is_none() {
-                return schema::err(&cmd.id, "destroySink", "denied", "not a Loom sink");
+            let mid = match cmd.module_id {
+                Some(m) => m,
+                None => return schema::err(&cmd.id, "destroySink", "denied", "missing module id"),
+            };
+            let listing = match run_cmd(&["pactl", "list", "short", "modules"]) {
+                Ok(t) => t,
+                Err(e) => return schema::err(&cmd.id, "destroySink", "exec", &e),
+            };
+            let live = crate::graph::parse_loom_modules(&listing);
+            if let Err(why) = crate::graph::verify_destroy_sink(&name, mid, &live) {
+                return schema::err(&cmd.id, "destroySink", "denied", why);
             }
-            if let Some(mid) = cmd.module_id {
-                let a = mid.to_string();
-                return match run_cmd(&["pactl", "unload-module", &a]) {
-                    Ok(_) => schema::ok(&cmd.id, "destroySink"),
-                    Err(e) => schema::err(&cmd.id, "destroySink", "exec", &e),
-                };
+            let a = mid.to_string();
+            match run_cmd(&["pactl", "unload-module", &a]) {
+                Ok(_) => schema::ok(&cmd.id, "destroySink"),
+                Err(e) => schema::err(&cmd.id, "destroySink", "exec", &e),
             }
-            schema::err(&cmd.id, "destroySink", "denied", "missing module id")
         }
         "cleanupOrphans" => {
             let listing = match run_cmd(&["pactl", "list", "short", "modules"]) {

@@ -55,6 +55,53 @@ need() {
   fi
 }
 
+list_modules_text() {
+  if [ -n "${LOOM_MODULES_TEXT:-}" ]; then
+    printf '%s\n' "$LOOM_MODULES_TEXT"
+    return 0
+  fi
+  need pactl
+  pactl list short modules
+}
+
+# Print "id<TAB>Loom-Name" for each live Loom null-sink.
+iter_loom_modules() {
+  list_modules_text | while IFS= read -r line || [ -n "$line" ]; do
+    [ -n "$line" ] || continue
+    id=$(printf '%s' "$line" | awk '{print $1}')
+    name=$(printf '%s' "$line" | awk '{print $2}')
+    rest=$(printf '%s' "$line" | awk '{ $1=""; $2=""; sub(/^  */, ""); print }')
+    case "$name" in
+      *module-null-sink*) ;;
+      *) continue ;;
+    esac
+    sink=$(printf '%s' "$rest" | sed -n 's/.*sink_name=\(Loom-[A-Za-z0-9_-]*\).*/\1/p')
+    [ -n "$sink" ] || continue
+    printf '%s\t%s\n' "$id" "$sink"
+  done
+}
+
+verify_destroy_sink() {
+  name=$1
+  mid=$2
+  case "$name" in
+    Loom-*) ;;
+    *) return 1 ;;
+  esac
+  [ -n "$mid" ] || return 1
+  found=0
+  while IFS="$(printf '\t')" read -r id sink || [ -n "$id" ]; do
+    [ -n "$id" ] || continue
+    if [ "$id" = "$mid" ] && [ "$sink" = "$name" ]; then
+      found=1
+      break
+    fi
+  done <<EOF
+$(iter_loom_modules)
+EOF
+  [ "$found" -eq 1 ]
+}
+
 run_op() {
   op=$1
   shift || true
@@ -95,14 +142,46 @@ run_op() {
       pactl load-module module-null-sink "sink_name=$sink" "sink_properties=device.description=$sink"
       ;;
     destroySink|destroy-module)
-      need pactl
       mid=${1:-}
-      [ -n "$mid" ] || { echo "usage: destroy-module ID" >&2; exit 2; }
+      name=${2:-}
+      [ -n "$mid" ] || { echo "usage: destroy-module ID [Loom-name]" >&2; exit 2; }
+      if [ -n "$name" ]; then
+        verify_destroy_sink "$name" "$mid" || { echo "loom-cli.sh: refused destroy of $name/$mid" >&2; exit 1; }
+      fi
+      if [ "${LOOM_DRY:-}" = 1 ]; then
+        return 0
+      fi
+      need pactl
       pactl unload-module "$mid"
       ;;
-    cleanupOrphans|list-loom-sinks)
-      need pactl
-      pactl list short modules | awk '/module-null-sink/ && /Loom-/ { print }'
+    cleanupOrphans)
+      destroy=${1:-false}
+      adopted=
+      removed=
+      while IFS="$(printf '\t')" read -r id sink || [ -n "$id" ]; do
+        [ -n "$id" ] || continue
+        if [ "$destroy" = "true" ]; then
+          if [ "${LOOM_DRY:-}" != 1 ]; then
+            need pactl
+            pactl unload-module "$id"
+          fi
+          if [ -n "$removed" ]; then
+            removed=$removed,
+          fi
+          removed=$removed'{"name":"'"$sink"'","moduleId":'"$id"'}'
+        else
+          if [ -n "$adopted" ]; then
+            adopted=$adopted,
+          fi
+          adopted=$adopted'{"name":"'"$sink"'","moduleId":'"$id"'}'
+        fi
+      done <<EOF
+$(iter_loom_modules)
+EOF
+      printf '%s\n' "${destroy}|${adopted}|${removed}"
+      ;;
+    list-loom-sinks)
+      iter_loom_modules
       ;;
     sanitize)
       sanitize_sink_name "${1:-}"
@@ -186,15 +265,23 @@ run_cmd_json() {
       fi
       ;;
     destroySink)
-      if run_op destroy-module "$(json_num moduleId "$json")"; then
+      dname=$(json_field name "$json")
+      dmid=$(json_num moduleId "$json")
+      if ! verify_destroy_sink "$dname" "$dmid"; then
+        emit_err "$id" "$op" "denied" "not a verified Loom null-sink"
+      elif run_op destroy-module "$dmid" "$dname"; then
         emit_ok "$id" "$op"
       else
         emit_err "$id" "$op" "exec" "unload failed"
       fi
       ;;
     cleanupOrphans)
-      if run_op list-loom-sinks; then
-        emit_ok "$id" "$op" "\"adopted\":[],\"removed\":[]"
+      destroy=$(json_bool destroy "$json")
+      [ "$destroy" = "true" ] || destroy=false
+      if plan=$(run_op cleanupOrphans "$destroy"); then
+        adopted=$(printf '%s' "$plan" | awk -F'|' '{print $2}')
+        removed=$(printf '%s' "$plan" | awk -F'|' '{print $3}')
+        emit_ok "$id" "$op" "\"destroy\":$destroy,\"adopted\":[${adopted}],\"removed\":[${removed}]"
       else
         emit_err "$id" "$op" "exec" "pactl failed"
       fi

@@ -153,9 +153,13 @@ function applyEvent(state, ev) {
 function nodeEq(a, b) {
     if (!a || !b)
         return false
-    return a.id === b.id && a.state === b.state && a.mute === b.mute
-        && a.volume === b.volume && a.isDefault === b.isDefault
-        && a.nick === b.nick && a.name === b.name && a.mediaClass === b.mediaClass
+    return a.id === b.id && a.serial === b.serial && a.state === b.state
+        && a.mute === b.mute && a.volume === b.volume && a.isDefault === b.isDefault
+        && a.isCapture === b.isCapture && a.isLoom === b.isLoom
+        && a.nick === b.nick && a.name === b.name && a.app === b.app
+        && a.mediaClass === b.mediaClass && a.kind === b.kind
+        && a.identity === b.identity && a.moduleId === b.moduleId
+        && JSON.stringify(a.channels || []) === JSON.stringify(b.channels || [])
 }
 
 function portEq(a, b) {
@@ -163,13 +167,16 @@ function portEq(a, b) {
         return false
     return a.id === b.id && a.node === b.node && a.dir === b.dir
         && a.channel === b.channel && a.monitor === b.monitor
+        && a.physical === b.physical && a.name === b.name
 }
 
 function linkEq(a, b) {
     if (!a || !b)
         return false
     return a.id === b.id && a.from === b.from && a.to === b.to
+        && a.fromNode === b.fromNode && a.toNode === b.toNode
         && a.kind === b.kind && a.live === b.live && a.muted === b.muted
+        && a.latencyMs === b.latencyMs
 }
 
 function diffList(oldList, newList, eq) {
@@ -222,7 +229,8 @@ function diff(prev, next, gen, stormThreshold) {
     }
     if (n === 0) {
         var defaultsChanged = JSON.stringify(a.defaults || {}) !== JSON.stringify(b.defaults || {})
-        if (!defaultsChanged)
+        var graphChanged = JSON.stringify(a.graph || {}) !== JSON.stringify(b.graph || {})
+        if (!defaultsChanged && !graphChanged)
             return { storm: false, event: null, n: 0 }
     }
     return {

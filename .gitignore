@@ -5,6 +5,6 @@
 .impl_prompt.md
 .grok_impl.log
 .fix_prompt*.md
-.review_prompt.md
+.review_prompt*.md
 .gpt_review*
 .serena/

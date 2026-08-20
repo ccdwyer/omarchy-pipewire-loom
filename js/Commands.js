@@ -71,6 +71,21 @@ function destroyModule(moduleId) {
     return { primary: ["pactl", "unload-module", String(moduleId)] }
 }
 
+function verifyDestroySink(name, moduleId, modules) {
+    var n = String(name || "")
+    if (n.indexOf("Loom-") !== 0)
+        return { ok: false, err: "not a Loom sink" }
+    if (moduleId === undefined || moduleId === null || String(moduleId).length === 0)
+        return { ok: false, err: "missing module id" }
+    var live = reconcileLoomModules(modules || [], false).adopted
+    var want = String(moduleId)
+    for (var i = 0; i < live.length; i++) {
+        if (live[i].name === n && String(live[i].moduleId) === want)
+            return { ok: true, err: "" }
+    }
+    return { ok: false, err: "moduleId is not that Loom null-sink" }
+}
+
 function listSinks() {
     return { primary: ["pactl", "list", "short", "sinks"] }
 }

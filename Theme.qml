@@ -8,17 +8,17 @@ import qs.Commons
 QtObject {
   id: theme
 
-  // Direct Color.* reads so theme changes still track. Guard the object
-  // first so a missing token cannot fail the load.
-  property color bg: (Color && Color.menu) ? Color.menu.background : "#141414"
-  property color surface: (Color && Color.menu) ? Color.menu.background : "#1c1c1c"
-  property color text: (Color && Color.menu) ? Color.menu.text : "#f2f2f2"
+  // Each token is gated individually: Color.menu existing is not enough
+  // if background/text/accent is absent on a partial palette.
+  property color bg: _tok(Color && Color.menu ? Color.menu.background : undefined, "#141414")
+  property color surface: _tok(Color && Color.menu ? Color.menu.background : undefined, "#1c1c1c")
+  property color text: _tok(Color && Color.menu ? Color.menu.text : undefined, "#f2f2f2")
   property color muted: Qt.rgba(text.r, text.g, text.b, 0.55)
-  property color accent: Color ? Color.accent : "#c8a46b"
-  property color border: (Color && Color.menu) ? Color.menu.border : "#3a3a3a"
-  property color scrim: (Color && Color.menu && Color.menu.scrim !== undefined) ? Color.menu.scrim : "#000000aa"
-  property color selectedBg: (Color && Color.menu && Color.menu.selectedBackground !== undefined) ? Color.menu.selectedBackground : "#2a2a2a"
-  property color selectedText: (Color && Color.menu && Color.menu.selectedText !== undefined) ? Color.menu.selectedText : "#ffffff"
+  property color accent: _tok(Color ? Color.accent : undefined, "#c8a46b")
+  property color border: _tok(Color && Color.menu ? Color.menu.border : undefined, "#3a3a3a")
+  property color scrim: _tok(Color && Color.menu ? Color.menu.scrim : undefined, "#000000aa")
+  property color selectedBg: _tok(Color && Color.menu ? Color.menu.selectedBackground : undefined, "#2a2a2a")
+  property color selectedText: _tok(Color && Color.menu ? Color.menu.selectedText : undefined, "#ffffff")
   property color danger: Qt.rgba(0.86, 0.22, 0.22, 1)
 
   property int radius: _num(function () { return Style.cornerRadius }, 10)
@@ -51,6 +51,12 @@ QtObject {
 
   property int motionMs: reduceMotion ? 0 : 150
   property int themeMs: reduceMotion ? 0 : 200
+
+  function _tok(value, fallback) {
+    if (value === undefined || value === null || value === "")
+      return fallback
+    return value
+  }
 
   function _num(fn, fallback) {
     try {

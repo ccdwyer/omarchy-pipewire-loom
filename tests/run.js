@@ -398,6 +398,42 @@ test("commands: loom name extract + reconcile adopt", () => {
   assert.strictEqual(String(plan.adopted[0].moduleId), "12")
 })
 
+test("commands: destroySink refuses non-Loom and mismatched moduleId", () => {
+  const mods = Commands.parsePactlShortModules(
+    "12\tmodule-null-sink\tsink_name=Loom-Mix\n13\tmodule-alsa-card\tdevice_id=0\n"
+  )
+  assert.strictEqual(Commands.verifyDestroySink("Loom-Mix", 12, mods).ok, true)
+  assert.strictEqual(Commands.verifyDestroySink("alsa_output.pci", 12, mods).ok, false)
+  assert.strictEqual(Commands.verifyDestroySink("Loom-Mix", 99, mods).ok, false)
+  assert.strictEqual(Commands.verifyDestroySink("Loom-Other", 12, mods).ok, false)
+})
+
+test("graph: identity/channels/moduleId/port name/link endpoints count as changes", () => {
+  const a = PwDump.parse(fixture("pwdump-simple.json"))
+  a.gen = 1
+  const ident = JSON.parse(JSON.stringify(a))
+  ident.nodes[0].identity = "changed|x|0"
+  assert.ok(Graph.diff(a, ident, 1, 50).n >= 1)
+  const ch = JSON.parse(JSON.stringify(a))
+  ch.nodes.find((n) => n.id === 77).channels = ["MONO"]
+  assert.ok(Graph.diff(a, ch, 1, 50).n >= 1)
+  const mid = JSON.parse(JSON.stringify(a))
+  mid.nodes.find((n) => n.id === 55).moduleId = 7
+  assert.ok(Graph.diff(a, mid, 1, 50).n >= 1)
+  const pname = JSON.parse(JSON.stringify(a))
+  pname.ports[0].name = "renamed"
+  pname.ports[0].physical = true
+  assert.ok(Graph.diff(a, pname, 1, 50).n >= 1)
+  const lep = JSON.parse(JSON.stringify(a))
+  lep.links[0].fromNode = 1
+  lep.links[0].latencyMs = 8
+  assert.ok(Graph.diff(a, lep, 1, 50).n >= 1)
+  const q = JSON.parse(JSON.stringify(a))
+  q.graph.quantum = 64
+  const dq = Graph.diff(a, q, 1, 50)
+  assert.ok(dq.event, "quantum change must emit")
+})
+
 test("schema: spawnSink ok carries name and moduleId", () => {
   const ev = Schema.parseLine(
     '{"t":"ok","id":"1","op":"spawnSink","name":"Loom-Mix","moduleId":12}'

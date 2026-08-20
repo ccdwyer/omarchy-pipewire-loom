@@ -34,6 +34,21 @@ fi
 out=$("$CLI" --cmd '{"op":"nope","id":"x"}' || true)
 echo "$out" | grep -q '"t":"err"' || { echo "FAIL --cmd should emit err NDJSON: $out"; exit 1; }
 
+# cleanupOrphans adopt/destroy against a fixture listing (no pactl).
+export LOOM_MODULES_TEXT="$(printf '12\tmodule-null-sink\tsink_name=Loom-Mix\n13\tmodule-alsa-card\tdevice_id=0\n')"
+export LOOM_DRY=1
+out=$("$CLI" --cmd '{"op":"cleanupOrphans","id":"1","destroy":false}')
+echo "$out" | grep -q 'Loom-Mix' || { echo "FAIL adopt should list Loom-Mix: $out"; exit 1; }
+echo "$out" | grep -q '"adopted"' || { echo "FAIL adopt missing adopted: $out"; exit 1; }
+out=$("$CLI" --cmd '{"op":"cleanupOrphans","id":"2","destroy":true}')
+echo "$out" | grep -q '"removed"' || { echo "FAIL destroy missing removed: $out"; exit 1; }
+echo "$out" | grep -q 'Loom-Mix' || { echo "FAIL destroy should list Loom-Mix: $out"; exit 1; }
+
+# destroySink refuses a non-Loom name even with a live module id.
+out=$("$CLI" --cmd '{"op":"destroySink","id":"3","name":"alsa_output","moduleId":12}' || true)
+echo "$out" | grep -q '"err":"denied"' || { echo "FAIL destroySink must deny non-Loom: $out"; exit 1; }
+unset LOOM_MODULES_TEXT LOOM_DRY
+
 # build.sh must not install this script as bin/loomd.
 if grep -q 'exec .*compat/loom-cli.sh' "$ROOT/build.sh"; then
   echo "FAIL build.sh still wraps loom-cli.sh as bin/loomd"

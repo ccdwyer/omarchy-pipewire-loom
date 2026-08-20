@@ -19,6 +19,7 @@ Item {
   signal bodyDragged(var nodeData, real nx, real ny)
   signal bodyReleased(var nodeData)
   signal portPressed(var port, real gx, real gy)
+  signal portMoved(real gx, real gy)
   signal portReleased(var port, real gx, real gy)
   signal droppedOn(var nodeData)
 
@@ -191,13 +192,18 @@ Item {
       }
       MouseArea {
         anchors.fill: parent
-        preventStealing: true
-        onPressed: {
-          var p = node.mapToItem(node.parent, width / 2, height / 2)
+        onPressed: function (ev) {
+          var p = mapToItem(node.parent, ev.x, ev.y)
           node.portPressed(modelData, p.x, p.y)
         }
-        onReleased: {
-          var p = node.mapToItem(node.parent, width / 2, height / 2)
+        onPositionChanged: function (ev) {
+          if (!(ev.buttons & Qt.LeftButton))
+            return
+          var p = mapToItem(node.parent, ev.x, ev.y)
+          node.portMoved(p.x, p.y)
+        }
+        onReleased: function (ev) {
+          var p = mapToItem(node.parent, ev.x, ev.y)
           node.portReleased(modelData, p.x, p.y)
         }
       }
@@ -225,13 +231,18 @@ Item {
       }
       MouseArea {
         anchors.fill: parent
-        preventStealing: true
-        onPressed: {
-          var p = node.mapToItem(node.parent, width / 2, height / 2)
+        onPressed: function (ev) {
+          var p = mapToItem(node.parent, ev.x, ev.y)
           node.portPressed(modelData, p.x, p.y)
         }
-        onReleased: {
-          var p = node.mapToItem(node.parent, width / 2, height / 2)
+        onPositionChanged: function (ev) {
+          if (!(ev.buttons & Qt.LeftButton))
+            return
+          var p = mapToItem(node.parent, ev.x, ev.y)
+          node.portMoved(p.x, p.y)
+        }
+        onReleased: function (ev) {
+          var p = mapToItem(node.parent, ev.x, ev.y)
           node.portReleased(modelData, p.x, p.y)
         }
       }

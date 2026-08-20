@@ -222,12 +222,15 @@ Item {
       return
     }
     if (op === "destroySink") {
-      if (cmd.moduleId !== undefined && cmd.moduleId !== null && String(cmd.name || "").indexOf("Loom-") === 0) {
+      root.enqueue(Commands.listModules().primary, function (text) {
+        var check = Commands.verifyDestroySink(cmd.name, cmd.moduleId, Commands.parsePactlShortModules(text))
+        if (!check.ok) {
+          if (root.store)
+            root.store.applyEvent(Schema.makeErr(cmd.id, "destroySink", "denied", check.err))
+          return
+        }
         root.dispatchArgv(Commands.destroyModule(cmd.moduleId), cmd, true)
-        return
-      }
-      if (root.store)
-        root.store.applyEvent(Schema.makeErr(cmd.id, "destroySink", "denied", "missing Loom module id"))
+      })
       return
     }
     if (op === "cleanupOrphans") {

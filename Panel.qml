@@ -543,6 +543,10 @@ Item {
                   onBodyDragged: function (n, nx, ny) { root.handleBodyDragged(n, nx, ny) }
                   onBodyReleased: function (n) { root.handleBodyReleased(n) }
                   onPortPressed: function (p, gx, gy) { root.handlePortPressed(p, gx, gy) }
+                  onPortMoved: function (gx, gy) {
+                    root.ghostX2 = gx
+                    root.ghostY2 = gy
+                  }
                   onPortReleased: function (p, gx, gy) {
                     if (root.dragKind === "port" || root.dragKind === "link-wait")
                       root.handlePortReleased(gx, gy)
@@ -557,7 +561,10 @@ Item {
               MouseArea {
                 id: canvasDrag
                 anchors.fill: parent
-                enabled: root.dragKind === "port" || root.dragKind === "link-wait"
+                // Keyboard link-wait has no port grab; this overlay tracks
+                // the pointer. Port drags keep their own MouseArea (no
+                // preventStealing) and map ev.x/ev.y into canvas coords.
+                enabled: root.dragKind === "link-wait"
                 hoverEnabled: enabled
                 acceptedButtons: Qt.LeftButton
                 z: 20

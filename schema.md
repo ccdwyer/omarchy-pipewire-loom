@@ -172,6 +172,9 @@ Every command has `op` and `id` (string, UI-generated).
 - **`spawnSink`**: `pactl load-module module-null-sink sink_name=Loom-<name>`.
   Never touches a device whose name does not start with `Loom-`. Success
   includes `name` and `moduleId` so the UI can persist teardown.
+- **`destroySink`**: requires `name` starting with `Loom-` **and** a
+  `moduleId` that currently belongs to that exact live `module-null-sink`.
+  Anything else returns `denied`.
 - **`cleanupOrphans`**: `destroy:false` (startup) lists live `Loom-*`
   null-sink modules as `adopted`. `destroy:true` unloads only those modules
   and returns them as `removed`.

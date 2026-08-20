@@ -18,7 +18,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub fn run() -> Result<(), String> {
     pipewire::init();
@@ -64,8 +64,12 @@ pub fn run() -> Result<(), String> {
     graph.gen = 1;
     emit(&schema::snapshot(&graph));
 
-    // Drive pw mainloop in this thread with short iterate timeouts, and
-    // service stdin + dumps between iterations.
+    // Registry add/remove does not fire for param/mute/volume/metadata
+    // or same-ID link property changes. Re-dump on a 1s clock so those
+    // updates still reach the UI; change_count skips identical snapshots.
+    let poll = Duration::from_millis(1000);
+    let mut last_dump = Instant::now();
+
     loop {
         mainloop.iterate(Duration::from_millis(16));
         while let Ok(line) = rx.try_recv() {
@@ -82,11 +86,17 @@ pub fn run() -> Result<(), String> {
                 Err(_) => emit(&schema::err("", "", "parse", line)),
             }
         }
+        if last_dump.elapsed() >= poll {
+            dirty.store(true, Ordering::SeqCst);
+            last_dump = Instant::now();
+        }
         if dirty.swap(false, Ordering::SeqCst) {
             if let Ok(mut next) = dump_once(None) {
-                next.gen = graph.gen + 1;
-                emit(&schema::snapshot(&next));
-                graph = next;
+                if crate::graph::change_count(&graph, &next) > 0 {
+                    next.gen = graph.gen + 1;
+                    emit(&schema::snapshot(&next));
+                    graph = next;
+                }
             }
         }
         let _ = Value::Null;

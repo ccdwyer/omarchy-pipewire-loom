@@ -543,34 +543,10 @@ pub fn sanitize_sink_name(name: &str) -> String {
     }
 }
 
-fn node_eq(a: &Node, b: &Node) -> bool {
-    a.id == b.id
-        && a.state == b.state
-        && a.mute == b.mute
-        && (a.volume - b.volume).abs() < 0.0005
-        && a.is_default == b.is_default
-        && a.nick == b.nick
-        && a.name == b.name
-        && a.media_class == b.media_class
-}
-
-fn port_eq(a: &Port, b: &Port) -> bool {
-    a.id == b.id && a.node == b.node && a.dir == b.dir && a.channel == b.channel && a.monitor == b.monitor
-}
-
-fn link_eq(a: &Link, b: &Link) -> bool {
-    a.id == b.id
-        && a.from == b.from
-        && a.to == b.to
-        && a.kind == b.kind
-        && a.live == b.live
-        && a.muted == b.muted
-}
-
-fn list_changes<T, FId, FEq>(old: &[T], new: &[T], id_of: FId, eq: FEq) -> usize
+fn list_changes<T, FId>(old: &[T], new: &[T], id_of: FId) -> usize
 where
+    T: PartialEq,
     FId: Fn(&T) -> u32,
-    FEq: Fn(&T, &T) -> bool,
 {
     use std::collections::HashMap;
     let old_by: HashMap<u32, &T> = old.iter().map(|x| (id_of(x), x)).collect();
@@ -579,7 +555,7 @@ where
     for (id, b) in &new_by {
         match old_by.get(id) {
             None => n += 1,
-            Some(a) if !eq(a, b) => n += 1,
+            Some(a) if *a != *b => n += 1,
             _ => {}
         }
     }
@@ -592,17 +568,30 @@ where
 }
 
 pub fn change_count(a: &Graph, b: &Graph) -> usize {
-    let mut n = list_changes(&a.nodes, &b.nodes, |x| x.id, node_eq)
-        + list_changes(&a.ports, &b.ports, |x| x.id, port_eq)
-        + list_changes(&a.links, &b.links, |x| x.id, link_eq);
-    if a.defaults.sink != b.defaults.sink
-        || a.defaults.source != b.defaults.source
-        || a.defaults.sink_name != b.defaults.sink_name
-        || a.defaults.source_name != b.defaults.source_name
-    {
+    let mut n = list_changes(&a.nodes, &b.nodes, |x| x.id)
+        + list_changes(&a.ports, &b.ports, |x| x.id)
+        + list_changes(&a.links, &b.links, |x| x.id);
+    if a.defaults != b.defaults {
+        n += 1;
+    }
+    if a.graph != b.graph {
         n += 1;
     }
     n
+}
+
+pub fn verify_destroy_sink(name: &str, module_id: u32, live: &[(u32, String)]) -> Result<(), &'static str> {
+    if !name.starts_with("Loom-") {
+        return Err("not a Loom sink");
+    }
+    if live
+        .iter()
+        .any(|(id, n)| *id == module_id && n == name)
+    {
+        Ok(())
+    } else {
+        Err("moduleId is not that Loom null-sink")
+    }
 }
 
 pub fn loom_name_from_argument(argument: &str) -> Option<String> {
@@ -795,6 +784,18 @@ mod tests {
         b.defaults.sink = Some(55);
         assert!(change_count(&a, &b) >= 1);
         b = a.clone();
+        b.nodes[0].channels = vec!["FL".into()];
+        assert!(change_count(&a, &b) >= 1);
+        b = a.clone();
+        b.nodes[0].identity = "other|x|0".into();
+        assert!(change_count(&a, &b) >= 1);
+        b = a.clone();
+        b.nodes[0].module_id = Some(9);
+        assert!(change_count(&a, &b) >= 1);
+        b = a.clone();
+        b.graph.quantum = 256;
+        assert!(change_count(&a, &b) >= 1);
+        b = a.clone();
         b.links.push(Link {
             id: 9,
             from: 1,
@@ -809,6 +810,21 @@ mod tests {
         let mut c = b.clone();
         c.links[0].live = true;
         assert!(change_count(&b, &c) >= 1);
+        c = b.clone();
+        c.links[0].from_node = 99;
+        assert!(change_count(&b, &c) >= 1);
+        c = b.clone();
+        c.links[0].latency_ms = Some(5.0);
+        assert!(change_count(&b, &c) >= 1);
+    }
+
+    #[test]
+    fn verify_destroy_requires_matching_loom_module() {
+        let live = vec![(12, "Loom-Mix".into())];
+        assert!(verify_destroy_sink("Loom-Mix", 12, &live).is_ok());
+        assert!(verify_destroy_sink("alsa_output", 12, &live).is_err());
+        assert!(verify_destroy_sink("Loom-Mix", 99, &live).is_err());
+        assert!(verify_destroy_sink("Loom-Other", 12, &live).is_err());
     }
 
     #[test]

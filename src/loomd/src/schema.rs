@@ -3,7 +3,7 @@ use serde_json::Value;
 
 pub const SCHEMA_VERSION: u32 = 1;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Node {
     pub id: u32,
     pub serial: u32,
@@ -28,7 +28,7 @@ pub struct Node {
     pub module_id: Option<u32>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Port {
     pub id: u32,
     pub node: u32,
@@ -39,7 +39,7 @@ pub struct Port {
     pub physical: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Link {
     pub id: u32,
     pub from: u32,
@@ -55,7 +55,7 @@ pub struct Link {
     pub latency_ms: Option<f64>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Defaults {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sink: Option<u32>,
@@ -67,7 +67,7 @@ pub struct Defaults {
     pub source_name: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct GraphInfo {
     pub quantum: u32,
     pub rate: u32,

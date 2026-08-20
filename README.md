@@ -52,10 +52,10 @@ Click the bar chip (default sink + live stream count; red badge if a capture nod
 The plugin does **not** write `hyprland.conf`. Bind a key yourself:
 
 ```
-bind = SUPER SHIFT, A, exec, omarchy-shell shell call io.github.chris.pipewire-loom toggle
+bind = SUPER SHIFT, A, exec, omarchy-shell shell call io.github.chris.pipewire-loom toggle '{}'
 ```
 
-`omarchy-shell shell summon io.github.chris.pipewire-loom '{}'` may also work if the host maps summon onto the widget's `open()`. The documented path is `shell call … toggle`.
+`omarchy-shell shell summon io.github.chris.pipewire-loom '{}'` may also work if the host maps summon onto the widget's `open()`. The documented path is `shell call … toggle '{}'`.
 
 ## Settings
 
