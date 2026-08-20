@@ -118,12 +118,9 @@ run_op() {
     move)
       stream=${1:-}
       target=${2:-}
-      [ -n "$stream" ] && [ -n "$target" ] || { echo "usage: move STREAM TARGET" >&2; exit 2; }
-      if command -v wpctl >/dev/null 2>&1 && wpctl set-target "$stream" "$target"; then
-        return 0
-      fi
+      [ -n "$stream" ] && [ -n "$target" ] || { echo "usage: move STREAM-ID TARGET-SERIAL-OR-NAME" >&2; exit 2; }
       need pw-metadata
-      pw-metadata "$stream" target.object "$target"
+      pw-metadata -n default "$stream" target.object "$target"
       ;;
     link)
       need pw-link
@@ -221,7 +218,11 @@ run_cmd_json() {
       run_op dump
       ;;
     move)
-      if out=$(run_op move "$(json_num stream "$json")" "$(json_num target "$json")"); then
+      tkey=$(json_num targetSerial "$json")
+      [ -n "$tkey" ] || tkey=$(json_field targetName "$json")
+      if [ -z "$tkey" ]; then
+        emit_err "$id" "$op" "gone" "no serial or name"
+      elif run_op move "$(json_num stream "$json")" "$tkey"; then
         emit_ok "$id" "$op"
       else
         emit_err "$id" "$op" "exec" "move failed"

@@ -2,24 +2,28 @@ import QtQuick
 import Quickshell
 import qs.Commons
 
-// Isolates Omarchy theme tokens. Visuals bind here so a missing token
-// cannot take the whole plugin down — see ASSUMPTIONS.md.
+// Isolates Omarchy theme tokens. Every color is a host token or a
+// mix of a host token. No hex and no standalone rgba constants.
 
 QtObject {
   id: theme
 
-  // Token-only colors. No hex literals. If a token is missing, derive
-  // from another token or from a channel mix of Color.accent / Color.menu.text.
-  property color accent: _live(function () { return Color.accent }, Qt.rgba(0.78, 0.64, 0.42, 1))
-  property color bg: _live(function () { return Color.menu.background }, Qt.rgba(accent.r * 0.12, accent.g * 0.12, accent.b * 0.12, 1))
-  property color surface: _live(function () { return Color.menu.background }, bg)
-  property color text: _live(function () { return Color.menu.text }, Qt.rgba(0.95, 0.95, 0.95, 1))
+  property color accent: Color.accent
+  property color bg: Color.menu.background
+  property color surface: Color.menu.background
+  property color text: Color.menu.text
   property color muted: Qt.rgba(text.r, text.g, text.b, 0.55)
-  property color border: _live(function () { return Color.menu.border }, Qt.rgba(text.r, text.g, text.b, 0.22))
-  property color scrim: _live(function () { return Color.menu.scrim }, Qt.rgba(0, 0, 0, 0.66))
-  property color selectedBg: _live(function () { return Color.menu.selectedBackground }, Qt.rgba(accent.r, accent.g, accent.b, 0.22))
-  property color selectedText: _live(function () { return Color.menu.selectedText }, text)
-  property color danger: _live(function () { return Color.error }, Qt.rgba(text.r, accent.g * 0.25, accent.b * 0.25, 1))
+  property color border: Color.menu.border
+  property color scrim: Color.menu.scrim
+  property color selectedBg: Color.menu.selectedBackground
+  property color selectedText: Color.menu.selectedText
+  property color danger: {
+    try {
+      if (Color.error)
+        return Color.error
+    } catch (e) {}
+    return accent
+  }
 
   property int radius: _num(function () { return Style.cornerRadius }, 10)
   property int pad: _num(function () { return Style.spacing && Style.spacing.panelPadding }, 16)
@@ -51,15 +55,6 @@ QtObject {
 
   property int motionMs: reduceMotion ? 0 : 150
   property int themeMs: reduceMotion ? 0 : 200
-
-  function _live(fn, fallback) {
-    try {
-      var c = fn()
-      if (c !== undefined && c !== null && c !== "")
-        return c
-    } catch (e) {}
-    return fallback
-  }
 
   function _num(fn, fallback) {
     try {

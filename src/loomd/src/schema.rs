@@ -110,6 +110,10 @@ pub struct Command {
     pub stream: Option<u32>,
     #[serde(default)]
     pub target: Option<u32>,
+    #[serde(rename = "targetSerial", default)]
+    pub target_serial: Option<u32>,
+    #[serde(rename = "targetName", default)]
+    pub target_name: Option<String>,
     #[serde(default)]
     pub from: Option<u32>,
     #[serde(default)]

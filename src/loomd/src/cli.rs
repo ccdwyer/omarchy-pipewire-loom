@@ -54,6 +54,27 @@ fn node_exists(g: &Graph, id: u32) -> bool {
     g.nodes.iter().any(|n| n.id == id)
 }
 
+fn move_target_key(g: &Graph, cmd: &Command) -> String {
+    if let Some(s) = cmd.target_serial {
+        if s != 0 {
+            return s.to_string();
+        }
+    }
+    if let Some(name) = cmd.target_name.as_ref() {
+        if !name.is_empty() {
+            return name.clone();
+        }
+    }
+    let Some(tid) = cmd.target else {
+        return String::new();
+    };
+    match g.nodes.iter().find(|n| n.id == tid) {
+        Some(n) if n.serial != 0 => n.serial.to_string(),
+        Some(n) if !n.name.is_empty() => n.name.clone(),
+        _ => String::new(),
+    }
+}
+
 fn port_exists(g: &Graph, id: u32) -> bool {
     g.ports.iter().any(|p| p.id == id)
 }
@@ -66,18 +87,14 @@ pub fn handle_command(g: &Graph, cmd: &Command) -> Value {
                 Some(s) if node_exists(g, s) => s,
                 _ => return schema::err(&cmd.id, "move", "gone", "stream"),
             };
-            let target = match cmd.target {
-                Some(t) if node_exists(g, t) => t,
-                _ => return schema::err(&cmd.id, "move", "gone", "target"),
-            };
+            let key = move_target_key(g, cmd);
+            if key.is_empty() {
+                return schema::err(&cmd.id, "move", "gone", "no serial or name");
+            }
             let sid = stream.to_string();
-            let tid = target.to_string();
-            match run_cmd(&["wpctl", "set-target", &sid, &tid]) {
+            match run_cmd(&["pw-metadata", "-n", "default", &sid, "target.object", &key]) {
                 Ok(_) => schema::ok(&cmd.id, "move"),
-                Err(_) => match run_cmd(&["pw-metadata", &sid, "target.object", &tid]) {
-                    Ok(_) => schema::ok(&cmd.id, "move"),
-                    Err(e) => schema::err(&cmd.id, "move", "exec", &e),
-                },
+                Err(e) => schema::err(&cmd.id, "move", "exec", &e),
             }
         }
         "link" => {
@@ -348,4 +365,51 @@ pub fn run_cmd_once(json: &str, from_file: Option<&str>) -> Result<(), String> {
     let cmd: Command = serde_json::from_str(json).map_err(|e| e.to_string())?;
     emit(&handle_command(&graph, &cmd));
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::schema::Node;
+
+    fn sink(id: u32, serial: u32, name: &str) -> Node {
+        Node {
+            id,
+            serial,
+            name: name.into(),
+            nick: name.into(),
+            app: String::new(),
+            media_class: "Audio/Sink".into(),
+            kind: "sink".into(),
+            state: "idle".into(),
+            mute: false,
+            volume: 1.0,
+            is_default: false,
+            is_capture: false,
+            is_loom: false,
+            channels: vec![],
+            identity: format!("{name}|Audio/Sink|0"),
+            module_id: None,
+        }
+    }
+
+    #[test]
+    fn move_key_prefers_serial_never_global_id() {
+        let mut g = Graph::default();
+        g.nodes.push(sink(55, 9901, "alsa_output.hw"));
+        let cmd: Command = serde_json::from_str(
+            r#"{"op":"move","id":"1","stream":77,"target":55,"targetSerial":9901,"targetName":"alsa_output.hw"}"#,
+        )
+        .unwrap();
+        assert_eq!(move_target_key(&g, &cmd), "9901");
+        let cmd2: Command =
+            serde_json::from_str(r#"{"op":"move","id":"1","stream":77,"target":55}"#).unwrap();
+        assert_eq!(move_target_key(&g, &cmd2), "9901");
+        let cmd3: Command = serde_json::from_str(
+            r#"{"op":"move","id":"1","stream":77,"target":55,"targetName":"alsa_output.hw"}"#,
+        )
+        .unwrap();
+        assert_eq!(move_target_key(&g, &cmd3), "alsa_output.hw");
+        assert_ne!(move_target_key(&g, &cmd), "55");
+    }
 }

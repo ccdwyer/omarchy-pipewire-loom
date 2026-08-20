@@ -18,10 +18,20 @@ function sanitizeSinkName(name) {
     return "Loom-" + out
 }
 
-function move(streamId, targetId) {
+function targetKey(node) {
+    if (!node)
+        return ""
+    if (node.serial)
+        return String(node.serial)
+    if (node.name)
+        return String(node.name)
+    return ""
+}
+
+function move(streamId, targetKey) {
+    var key = String(targetKey || "")
     return {
-        primary: ["wpctl", "set-target", String(streamId), String(targetId)],
-        fallback: ["pw-metadata", String(streamId), "target.object", String(targetId)]
+        primary: ["pw-metadata", "-n", "default", String(streamId), "target.object", key]
     }
 }
 
@@ -177,8 +187,12 @@ function reconcileLoomModules(modules, destroy) {
 }
 
 function argvFor(op, cmd) {
-    if (op === "move")
-        return move(cmd.stream, cmd.target)
+    if (op === "move") {
+        var key = cmd.targetSerial || cmd.targetName
+        if (!key)
+            return null
+        return move(cmd.stream, key)
+    }
     if (op === "link" && cmd.from !== undefined && cmd.to !== undefined)
         return linkPorts(cmd.from, cmd.to)
     if (op === "unlink" && cmd.from !== undefined && cmd.to !== undefined)

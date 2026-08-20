@@ -146,7 +146,7 @@ Every command has `op` and `id` (string, UI-generated).
 
 ```json
 {"op":"dump","id":"1"}
-{"op":"move","id":"2","stream":77,"target":55}
+{"op":"move","id":"2","stream":77,"target":55,"targetSerial":9901,"targetName":"alsa_output.hw"}
 {"op":"link","id":"3","from":80,"to":91}
 {"op":"link","id":"4","fromNode":77,"toNode":55}
 {"op":"unlink","id":"5","link":200}
@@ -161,8 +161,9 @@ Every command has `op` and `id` (string, UI-generated).
 
 ### Semantics
 
-- **`move`**: set the stream's WirePlumber routing target (`target.object` /
-  `wpctl set-target`). This is the sticky verb. Never a raw `pw-link`.
+- **`move`**: `pw-metadata -n default <stream-id> target.object <serial-or-name>`.
+  `targetSerial` (preferred) or `targetName` — never the target's transient
+  global id. Sticky verb. Never a raw `pw-link`.
 - **`link` with ports**: explicit `pw-link`. Drawn dashed; policy-fragile.
 - **`link` with nodes**: auto-map channels. If the map is ambiguous
   (mismatched counts other than mono fan-out), return `{"err":"ambiguous"}`

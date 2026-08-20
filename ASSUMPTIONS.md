@@ -9,7 +9,7 @@ Conservative choices where the Omarchy / Quickshell / PipeWire API was not 100% 
 - **`keepLoaded: true`** is set even though the only kind is bar-widget. The nested `PanelWindow` and the backend `Process` should survive close. Bar widgets on the bar are already kept loaded; this is belt-and-suspenders if the host honours the flag for nested windows.
 - **Injected properties** on load: `omarchyPath`, `shell`, `manifest`, `pluginRegistry`, `bar`. Same as first-party clipboard / clock. The widget still runs if some are missing.
 - **`IpcHandler` target** is the plugin id. Extra surface; `shell call` is the primary path. Typed return `string` matches desktop-undo.
-- **Theme tokens** `Color.menu.*`, `Color.accent`, `Style.*`, `Border.surfaceSpec`, `BarWidget`, `WidgetButton`, `BorderSurface`, `PanelWindow`, `WlrLayershell` — copied from first-party clipboard / undo. No hexadecimal color literals. Missing tokens fall back to `Qt.rgba(...)` mixes of accent/text so a partial palette cannot fail the load. Reduced motion: `Style.reduceMotion` if present, else `OMARCHY_REDUCED_MOTION=1`.
+- **Theme tokens** `Color.menu.*`, `Color.accent`, `Style.*`, `Border.surfaceSpec`, `BarWidget`, `WidgetButton`, `BorderSurface`, `PanelWindow`, `WlrLayershell` — copied from first-party clipboard / undo. Colors bind to host tokens only. `muted` is the text token at 55% alpha; `danger` is `Color.error` if present else `Color.accent`. No hex and no standalone rgba constants. Reduced motion: `Style.reduceMotion` if present, else `OMARCHY_REDUCED_MOTION=1`.
 - **Animations:** 150 ms add/remove, 200 ms color lerp on theme change, as specified.
 
 ## Quickshell
@@ -23,7 +23,7 @@ Conservative choices where the Omarchy / Quickshell / PipeWire API was not 100% 
 
 ## PipeWire / WirePlumber
 
-- **Move verb:** `wpctl set-target <stream> <sink>` first, then `pw-metadata <stream> target.object <sink>`. Spec says target metadata the way wpctl does. `wpctl set-target` exists on WirePlumber 0.5+; the metadata fallback covers 0.4. Never `pw-link` for move. Stickiness (restart the track) cannot be asserted on this macOS machine.
+- **Move verb:** `pw-metadata -n default <stream-node-id> target.object <object.serial-or-node.name>`. Official `wpctl` has no `set-target`. The protocol carries `targetSerial` (preferred) or `targetName`; backends never write the target's transient global id as the metadata value. Stickiness (restart the track) cannot be executed on this macOS machine — the argv is the official WirePlumber contract.
 - **Mute:** `wpctl set-mute <id> 1|0` per **stream** in the BFS subgraph. If the walk finds no `Stream/*` nodes, both backends no-op and toast “no streams in subgraph”. Hardware sinks/sources are never muted by `m`.
 - **Volume:** `wpctl set-volume <id> <0..1>`. Channel volumes in pw-dump are cubed; we cube-root for display. Reverse is wpctl's problem.
 - **Explicit links:** `pw-link -I <out> <in>` and `pw-link -d -I …`. Port ids, not names.

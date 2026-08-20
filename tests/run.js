@@ -352,11 +352,16 @@ test("simple view hides midi, duplex, monitors", () => {
 })
 
 test("commands: move uses target metadata, spawn is Loom- prefixed", () => {
-  const mv = Commands.move(77, 55)
-  assert.strictEqual(mv.primary[0], "wpctl")
-  assert.strictEqual(mv.primary[1], "set-target")
-  assert.strictEqual(mv.fallback[0], "pw-metadata")
-  assert.strictEqual(mv.fallback[2], "target.object")
+  const mv = Commands.move(77, 9901)
+  assert.strictEqual(mv.primary[0], "pw-metadata")
+  assert.strictEqual(mv.primary[1], "-n")
+  assert.strictEqual(mv.primary[2], "default")
+  assert.strictEqual(mv.primary[3], "77")
+  assert.strictEqual(mv.primary[4], "target.object")
+  assert.strictEqual(mv.primary[5], "9901")
+  assert.ok(!mv.fallback)
+  assert.strictEqual(Commands.targetKey({ id: 55, serial: 9901, name: "alsa" }), "9901")
+  assert.strictEqual(Commands.targetKey({ id: 55, name: "alsa" }), "alsa")
   const sp = Commands.spawnSink("Recording")
   assert.strictEqual(sp.sinkName, "Loom-Recording")
   assert.ok(sp.primary.indexOf("module-null-sink") >= 0)
@@ -481,11 +486,23 @@ test("manifest: virtualSinks defaults false", () => {
   assert.strictEqual(man.barWidget.defaults.virtualSinks, false)
 })
 
+test("readme: enable + defaultSection, no bar put / summon", () => {
+  const md = fs.readFileSync(path.join(ROOT, "README.md"), "utf8")
+  assert.ok(md.indexOf("omarchy plugin enable io.github.chris.pipewire-loom") >= 0)
+  assert.ok(md.indexOf("omarchy bar put") < 0)
+  assert.ok(md.indexOf("shell summon io.github.chris.pipewire-loom") < 0)
+  assert.ok(md.indexOf("toggle '{}'") >= 0)
+})
+
 test("move stickiness contract: command is metadata not pw-link", () => {
-  const argv = Commands.argvFor("move", { stream: 88, target: 66 })
-  const joined = argv.primary.concat(argv.fallback || []).join(" ")
+  const argv = Commands.argvFor("move", { stream: 88, target: 66, targetSerial: 12004, targetName: "bluez_out" })
+  assert.ok(argv)
+  const joined = argv.primary.join(" ")
   assert.ok(joined.indexOf("pw-link") < 0)
-  assert.ok(joined.indexOf("set-target") >= 0 || joined.indexOf("target.object") >= 0)
+  assert.ok(joined.indexOf("wpctl") < 0)
+  assert.ok(joined.indexOf("set-target") < 0)
+  assert.ok(joined.indexOf("pw-metadata -n default 88 target.object 12004") >= 0)
+  assert.ok(Commands.argvFor("move", { stream: 88, target: 66 }) === null)
 })
 
 process.stdout.write("\n" + passed + " passed, " + failed + " failed\n")

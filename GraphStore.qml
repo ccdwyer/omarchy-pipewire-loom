@@ -315,7 +315,17 @@ Item {
       // Not a playback stream — fall through to explicit auto-link.
       return store.linkNodes(streamId, sinkId)
     }
-    store.send(Schema.makeCommand("move", { stream: streamId, target: sinkId }))
+    var key = Commands.targetKey(dst)
+    if (!key) {
+      store.emitToast("target has no serial or name", "warn")
+      return "gone"
+    }
+    store.send(Schema.makeCommand("move", {
+      stream: streamId,
+      target: sinkId,
+      targetSerial: dst.serial,
+      targetName: dst.name
+    }))
     return "ok"
   }
 
@@ -341,7 +351,6 @@ Item {
       store.highlightPortIds = ids
       store.highlight(ids)
       store.emitToast("ambiguous map (" + (mapped.detail || "") + ")", "warn")
-      store.send(Schema.makeCommand("link", { fromNode: fromNode, toNode: toNode }))
       return "ambiguous"
     }
     store.highlightPortIds = []

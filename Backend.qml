@@ -265,19 +265,18 @@ Item {
           root.store.applyEvent(Schema.makeErr(cmd.id, "move", "gone"))
         return
       }
-      var mv = Commands.move(cmd.stream, cmd.target)
+      var dst = Graph.findNode(root.store.raw, cmd.target)
+      var key = cmd.targetSerial || cmd.targetName || Commands.targetKey(dst)
+      if (!key) {
+        if (root.store)
+          root.store.applyEvent(Schema.makeErr(cmd.id, "move", "gone", "no serial or name"))
+        return
+      }
+      var mv = Commands.move(cmd.stream, key)
       root.enqueue(mv.primary, function (text, code) {
-        if (code !== 0)
-          root.enqueue(mv.fallback, function (t2, c2) {
-            if (root.store)
-              root.store.applyEvent(c2 === 0 ? Schema.makeOk(cmd.id, "move") : Schema.makeErr(cmd.id, "move", "exec", String(t2 || text || "")))
-            Qt.callLater(function () { root.pollNow() })
-          })
-        else {
-          if (root.store)
-            root.store.applyEvent(Schema.makeOk(cmd.id, "move"))
-          Qt.callLater(function () { root.pollNow() })
-        }
+        if (root.store)
+          root.store.applyEvent(code === 0 ? Schema.makeOk(cmd.id, "move") : Schema.makeErr(cmd.id, "move", "exec", String(text || "")))
+        Qt.callLater(function () { root.pollNow() })
       })
       return
     }

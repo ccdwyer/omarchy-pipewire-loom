@@ -1,6 +1,6 @@
 # PipeWire Loom
 
-A theme-native PipeWire graph inside Omarchy. Drag a browser onto your headset, spawn a virtual sink, mute a subgraph, watch live routes light up. Helvum, if Omarchy had designed it.
+A theme-native PipeWire graph inside Omarchy. Drag a browser onto your headset, mute a subgraph, watch live routes light up. Helvum, if Omarchy had designed it. Virtual `Loom-*` sinks exist behind `virtualSinks: true` and are off by default (stock-Omarchy proof not run).
 
 This is an Omarchy shell **bar-widget**. The graph is a nested panel, not a second Quickshell process. The v1.0 backend is stock `pw-dump` / `wpctl` / `pw-link` / `pactl`. Optional `loomd` is the same CLI poller speaking NDJSON — not a native PipeWire subscriber.
 
@@ -16,17 +16,14 @@ Then, on the machine, build the helper (optional — the widget works without it
 ~/.config/omarchy/plugins/io.github.chris.pipewire-loom/build.sh
 ```
 
-Put the chip on the bar if `--enable` did not:
-
-```sh
-omarchy bar put io.github.chris.pipewire-loom --section right
-```
-
-Reload plugins if the shell was already running:
+If you added without `--enable`, enable it so the chip lands in `barWidget.defaultSection` (`right`):
 
 ```sh
 omarchy-shell shell rescanPlugins
+omarchy plugin enable io.github.chris.pipewire-loom
 ```
+
+The widget can then be moved with `omarchy bar move`.
 
 Saving any file under the plugin directory hot-reloads it.
 
@@ -36,7 +33,7 @@ Click the bar chip (default sink + live stream count; red badge if a capture nod
 
 | Input | Action |
 |---|---|
-| Drag a playback stream onto a sink | **Move** — WirePlumber `target.object` / `wpctl set-target`. Intended to survive a track restart; that stickiness test has not been run on this machine. |
+| Drag a playback stream onto a sink | **Move** — `pw-metadata -n default <stream-id> target.object <sink-serial-or-name>`. Intended to survive a track restart; that live check needs PipeWire and was not run on this machine. |
 | Drag a port onto a port or node | **Explicit `pw-link`**. Drawn dashed; the session manager may re-evaluate it. Drop on a node auto-maps channels. Stereo→5.1 and other mismatched counts are refused, ports highlighted. |
 | `h j k l` / arrows | Walk nodes |
 | `Tab` | Simple view (streams + devices) ↔ full graph |
@@ -55,7 +52,11 @@ The plugin does **not** write `hyprland.conf`. Bind a key yourself:
 bind = SUPER SHIFT, A, exec, omarchy-shell shell call io.github.chris.pipewire-loom toggle '{}'
 ```
 
-`omarchy-shell shell summon io.github.chris.pipewire-loom '{}'` may also work if the host maps summon onto the widget's `open()`. The documented path is `shell call … toggle '{}'`.
+This plugin is a bar-widget only — do not `shell summon` it. Click the chip, or:
+
+```
+omarchy-shell shell call io.github.chris.pipewire-loom toggle '{}'
+```
 
 ## Settings
 
@@ -83,8 +84,8 @@ v1.0 ships **one** backend: the CLI path (`pw-dump` for state, `wpctl` / `pw-lin
 Day-1 gate (backend alone, no UI):
 
 ```sh
-compat/loom-cli.sh move <stream-id> <sink-id>
-# restart the track; WirePlumber should keep the route
+compat/loom-cli.sh move <stream-id> <sink-object.serial-or-node.name>
+# On a PipeWire machine: restart the track; the route should stick.
 ```
 
 ## Honest limitations
