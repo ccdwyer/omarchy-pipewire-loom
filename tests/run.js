@@ -645,6 +645,7 @@ test("link uses port names, not pw-link -I", () => {
   assert.ok(src.indexOf("Title strip only") >= 0)
   const overlay = fs.readFileSync(path.join(ROOT, "LoomOverlay.qml"), "utf8")
   assert.ok(overlay.indexOf("nodeRepeater.itemAt") >= 0)
+  assert.ok(overlay.indexOf("propagateComposedEvents") >= 0)
 })
 
 test("unlink uses pw-link -d link-id and clears stream target.object", () => {

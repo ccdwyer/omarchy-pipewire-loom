@@ -361,6 +361,14 @@ Item {
       // Not a playback stream — fall through to explicit auto-link.
       return store.linkNodes(streamId, sinkId)
     }
+    var links = store.raw.links || []
+    var i
+    for (i = 0; i < links.length; i++) {
+      if (Number(links[i].fromNode) === Number(streamId) && Number(links[i].toNode) === Number(sinkId)) {
+        store.emitToast("already on " + (dst.nick || dst.name || "sink"), "info")
+        return "ok"
+      }
+    }
     var key = Commands.targetKey(dst)
     if (!key) {
       store.emitToast("target has no serial or name", "warn")
@@ -372,6 +380,7 @@ Item {
       targetSerial: dst.serial,
       targetName: dst.name
     }))
+    store.emitToast((src.nick || src.app || "stream") + " → " + (dst.nick || dst.name || "sink"), "info")
     return "ok"
   }
 
