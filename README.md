@@ -46,11 +46,13 @@ Click the bar chip (default sink + live stream count; red badge if a capture nod
 | `?` | Key overlay |
 | Right-click the chip | Toggle simple / full view without opening the panel |
 
-Super+Shift+A is Omarchy's ChatGPT bind, so Loom prefers Super+Shift+L. If that
-combo is free, a **keys** chip on the bar offers **Add keybindings**. That
-writes an `o.bind` line to `~/.config/hypr/bindings.lua` (Hyprland reloads on
-save). Combos you already use are skipped; Super+Shift+L falls back to
-Super+Alt+L. The plugin never unbinds someone else's shortcut.
+Super+Shift+A is Omarchy's ChatGPT bind and Super+L is layout, so Loom prefers
+Super+Shift+L. On first load the plugin writes that bind to
+`~/.config/hypr/bindings.lua` if the combo is free, then pops an Omarchy
+notification with the key it assigned. Occupied shortcuts are skipped;
+Super+Shift+L falls back to Super+Alt+L. It never unbinds someone else's key,
+and it will not notify again once its bind is already live. Bar-widget
+`claimAuto` keeps two monitors from double-notifying.
 
 ```
 bind = SUPER SHIFT, L, exec, omarchy-shell io.github.chris.pipewire-loom toggle '{}'
@@ -102,7 +104,7 @@ compat/loom-cli.sh move <stream-id> <sink-object.serial-or-node.name>
 - **Latency labels** appear per-route only when a route's quantum differs from the graph default. Same-number-on-every-wire is noise and is omitted.
 - **Simple view is presentation-only.** MIDI, monitor ports, and virtual-duplex nodes are hidden; they still exist in PipeWire.
 - **No native PipeWire subscribe in 1.0.** `src/loomd/src/native.rs` is parked and not compiled. `build.sh` builds the CLI poller only.
-- **Keybinds are yours to add.**
+- **Keybinds auto-assign on first load.** Occupied combos are skipped. Never `hl.unbind`. No notify once binds are already live.
 - **No second Quickshell process, no omarchy.* id.**
 
 ## Tests (off-device)

@@ -83,8 +83,18 @@ BarWidget {
     enqueueWork(["hyprctl", "-j", "binds"], function(text, code) {
       if (Number(code) !== 0)
         return
-      root.applyBindPlan(Binds.applyScan(text))
+      var plan = Binds.applyScan(text)
+      root.applyBindPlan(plan)
+      if (plan.needed && plan.toAdd && plan.toAdd.length && Binds.claimAuto())
+        root.installBinds("auto")
     })
+  }
+
+  function notifyNewBinds(plan) {
+    var body = Binds.notifyBody(plan.toAdd, plan.skipped)
+    if (!body)
+      return
+    Quickshell.execDetached(Binds.notifyArgv("PipeWire Loom", "PipeWire Loom keybindings", body))
   }
 
   function installBinds(arg) {
@@ -104,6 +114,7 @@ BarWidget {
           root.offerNote = "could not write ~/.config/hypr/bindings.lua"
           return
         }
+        root.notifyNewBinds(plan)
         Qt.callLater(root.scanBinds)
       })
     })
@@ -193,17 +204,6 @@ BarWidget {
       z: 2
     }
   }
-
-    WidgetButton {
-      visible: root.offerBinds
-      bar: root.bar
-      text: "keys"
-      tooltipText: root.offerNote.length ? root.offerNote : "Add Super+Shift+L keybinding (skips combos you already use)"
-      onPressed: function(buttonCode) {
-        if (buttonCode === Qt.LeftButton)
-          root.installBinds("")
-      }
-    }
   }
 
   Process {
