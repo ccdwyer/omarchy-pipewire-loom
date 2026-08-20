@@ -155,7 +155,7 @@ Every command has `op` and `id` (string, UI-generated).
 {"op":"mute","id":"8","node":77,"mute":true}
 {"op":"muteSubgraph","id":"9","node":77,"mute":true}
 {"op":"spawnSink","id":"10","name":"Recording"}
-{"op":"destroySink","id":"11","name":"Loom-Recording"}
+{"op":"destroySink","id":"11","name":"Loom-Recording","moduleId":12}
 {"op":"cleanupOrphans","id":"12","destroy":false}
 ```
 

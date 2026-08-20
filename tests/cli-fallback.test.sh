@@ -12,9 +12,13 @@ test -x "$CLI" || { echo "FAIL compat/loom-cli.sh not executable"; exit 1; }
 help=$("$CLI" --help) || true
 echo "$help" | grep -q dump || { echo "FAIL help missing dump"; exit 1; }
 
-# destroy-module requires an id; it must not accept a raw device name.
+# destroy-module requires BOTH id and Loom-* name.
 if "$CLI" destroy-module >/dev/null 2>&1; then
-  echo "FAIL destroy-module without id should fail"
+  echo "FAIL destroy-module without args should fail"
+  exit 1
+fi
+if "$CLI" destroy-module 12 >/dev/null 2>&1; then
+  echo "FAIL destroy-module without Loom name should fail"
   exit 1
 fi
 
@@ -47,6 +51,26 @@ echo "$out" | grep -q 'Loom-Mix' || { echo "FAIL destroy should list Loom-Mix: $
 # destroySink refuses a non-Loom name even with a live module id.
 out=$("$CLI" --cmd '{"op":"destroySink","id":"3","name":"alsa_output","moduleId":12}' || true)
 echo "$out" | grep -q '"err":"denied"' || { echo "FAIL destroySink must deny non-Loom: $out"; exit 1; }
+
+# muteSubgraph mutes every id in nodes[], not just the root.
+grep -q 'json_id_list' "$CLI" || { echo "FAIL muteSubgraph must parse nodes[]"; exit 1; }
+grep -q 'for nid in' "$CLI" || { echo "FAIL muteSubgraph must walk nodes[]"; exit 1; }
+
+# id-only destroy-module is gone
+if grep -n 'destroy-module ID \[' "$CLI" >/dev/null 2>&1; then
+  echo "FAIL destroy-module still treats name as optional"
+  exit 1
+fi
+
+# native mode is parked
+if grep -q 'features pipewire' "$ROOT/build.sh"; then
+  echo "FAIL build.sh still builds native pipewire"
+  exit 1
+fi
+if grep -q '^mod native' "$ROOT/src/loomd/src/main.rs"; then
+  echo "FAIL main.rs still compiles native.rs"
+  exit 1
+fi
 unset LOOM_MODULES_TEXT LOOM_DRY
 
 # build.sh must not install this script as bin/loomd.

@@ -2,7 +2,7 @@
 
 A theme-native PipeWire graph inside Omarchy. Drag a browser onto your headset, spawn a virtual sink, mute a subgraph, watch live routes light up. Helvum, if Omarchy had designed it.
 
-This is an Omarchy shell **bar-widget**. The graph is a nested panel, not a second Quickshell process. The guaranteed backend is stock `pw-dump` / `wpctl` / `pw-link` / `pactl`. `loomd` is a performance upgrade.
+This is an Omarchy shell **bar-widget**. The graph is a nested panel, not a second Quickshell process. The v1.0 backend is stock `pw-dump` / `wpctl` / `pw-link` / `pactl`. Optional `loomd` is the same CLI poller speaking NDJSON — not a native PipeWire subscriber.
 
 ## Install
 
@@ -74,9 +74,11 @@ User-dragged node positions persist separately to `~/.local/state/pipewire-loom/
 
 ## Backends
 
-1. **`bin/loomd`** — Rust helper. Built with `build.sh`. Dynamically linked against system `libpipewire-0.3` when that crate feature compiles; otherwise a `pw-dump` poller that still speaks the committed NDJSON schema (`schema.md`).
-2. **CLI (guaranteed).** If `loomd` is missing, fails to say hello in 2s, or crashes 3×, QML polls `pw-dump` itself and mutates via `wpctl` / `pw-link` / `pactl`. A "compat mode" badge appears. The panel is never blank.
-3. **`compat/loom-cli.sh`** — POSIX one-shot verbs for the same tools, used if you want to drive a move from a terminal without the UI.
+v1.0 ships **one** backend: the CLI path (`pw-dump` for state, `wpctl` / `pw-link` / `pactl` for mutations). Native libpipewire subscribe is parked.
+
+1. **In-process CLI (guaranteed).** QML polls `pw-dump` and mutates via the stock tools. This is the product.
+2. **`bin/loomd --cli` (optional).** Same CLI poller, speaking the committed NDJSON schema on stdin/stdout. Missing or crashing helper drops back to (1) with a compat badge.
+3. **`compat/loom-cli.sh`** — POSIX one-shot verbs (`--dump` / `--cmd`) for the same tools. Not a daemon.
 
 Day-1 gate (backend alone, no UI):
 
@@ -93,7 +95,7 @@ compat/loom-cli.sh move <stream-id> <sink-id>
 - **Virtual sinks are off by default** (`virtualSinks: false`). The spawn path is `pactl` null-sink with a `Loom-` prefix and will not unload anything else. The day-3 stock-Omarchy proof was not run on this machine; set `virtualSinks: true` in the `shell.json` entry only after that proof is green. Teardown uses the `moduleId` returned on `spawnSink` success and persisted via `rememberModule`. Startup adopts live `Loom-*` modules; `cleanupOrphans` unloads only those.
 - **Latency labels** appear per-route only when a route's quantum differs from the graph default. Same-number-on-every-wire is noise and is omitted.
 - **Simple view is presentation-only.** MIDI, monitor ports, and virtual-duplex nodes are hidden; they still exist in PipeWire.
-- **`loomd` native subscribe** is optional. The product is the CLI path. A macOS checkout cannot link libpipewire; `build.sh` then produces a CLI-only binary, or installs nothing and QML stays on in-process `pw-dump`. `compat/loom-cli.sh` implements `--dump` / `--cmd` oneshots and is **not** installed as `bin/loomd`.
+- **No native PipeWire subscribe in 1.0.** `src/loomd/src/native.rs` is parked and not compiled. `build.sh` builds the CLI poller only.
 - **Keybinds are yours to add.**
 - **No second Quickshell process, no omarchy.* id.**
 

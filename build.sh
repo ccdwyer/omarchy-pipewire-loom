@@ -18,17 +18,11 @@ if ! command -v cargo >/dev/null 2>&1; then
   exit 0
 fi
 
-# Prefer a dynamically-linked libpipewire build on Arch; fall back to CLI-only.
+# v1.0 ships the CLI poller only. Native libpipewire is parked.
 built=
-if cargo build --release --features pipewire --manifest-path "$SRC/Cargo.toml"; then
+if cargo build --release --manifest-path "$SRC/Cargo.toml"; then
   built="$SRC/target/release/loomd"
-  echo "build.sh: native (libpipewire) build ok"
-else
-  echo "build.sh: --features pipewire failed; building CLI-only loomd" >&2
-  if cargo build --release --manifest-path "$SRC/Cargo.toml"; then
-    built="$SRC/target/release/loomd"
-    echo "build.sh: CLI-only build ok"
-  fi
+  echo "build.sh: CLI loomd build ok"
 fi
 
 if [ -z "$built" ] || [ ! -x "$built" ]; then

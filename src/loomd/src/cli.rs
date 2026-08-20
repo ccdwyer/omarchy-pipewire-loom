@@ -296,10 +296,8 @@ pub fn run_daemon(poll_ms: u64, from_file: Option<String>, dry: bool) -> Result<
                             let ev = handle_command(&graph, &cmd);
                             emit(&ev);
                             if cmd.op != "dump" {
-                                if let Ok(mut next) = dump_once(from_file.as_deref()) {
-                                    next.gen = graph.gen;
-                                    emit_diff_or_snap(&graph, &next);
-                                    graph = next;
+                                if let Ok(next) = dump_once(from_file.as_deref()) {
+                                    graph = emit_diff_or_snap(&graph, next);
                                 }
                             }
                         }
@@ -310,10 +308,8 @@ pub fn run_daemon(poll_ms: u64, from_file: Option<String>, dry: bool) -> Result<
             Err(mpsc::RecvTimeoutError::Timeout) => {
                 if last.elapsed() >= poll {
                     last = Instant::now();
-                    if let Ok(mut next) = dump_once(from_file.as_deref()) {
-                        next.gen = graph.gen;
-                        emit_diff_or_snap(&graph, &next);
-                        graph = next;
+                    if let Ok(next) = dump_once(from_file.as_deref()) {
+                        graph = emit_diff_or_snap(&graph, next);
                     }
                 }
             }
@@ -323,25 +319,17 @@ pub fn run_daemon(poll_ms: u64, from_file: Option<String>, dry: bool) -> Result<
     Ok(())
 }
 
-fn emit_diff_or_snap(prev: &Graph, next: &Graph) {
-    let n = crate::graph::change_count(prev, next);
+fn emit_diff_or_snap(prev: &Graph, next: Graph) -> Graph {
+    let (stamped, n) = crate::graph::stamp_gen(prev, next);
     if n == 0 {
-        return;
+        return stamped;
     }
+    // gen is already prev.gen + 1 and stored on stamped before emit.
     if n > 10 {
-        let mut snap = next.clone();
-        snap.gen = prev.gen + 1;
-        emit(&schema::storm(snap.gen, n));
-        emit(&schema::snapshot(&snap));
-        return;
+        emit(&schema::storm(stamped.gen, n));
     }
-    // Small change: still snapshot. Diff construction lives in the JS
-    // engine; keeping loomd's poller honest and simple avoids two
-    // reconcilers drifting. Generation stays put so the UI applies it as
-    // a replace of the same gen (Graph.applySnapshot bumps if present).
-    let mut snap = next.clone();
-    snap.gen = prev.gen + 1;
-    emit(&schema::snapshot(&snap));
+    emit(&schema::snapshot(&stamped));
+    stamped
 }
 
 pub fn run_cmd_once(json: &str, from_file: Option<&str>) -> Result<(), String> {

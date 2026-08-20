@@ -1,10 +1,9 @@
-//! loomd — PipeWire Loom helper.
+//! loomd — PipeWire Loom helper (v1.0 = CLI poller only).
 //!
-//! Default: CLI poller (`pw-dump` + `wpctl`/`pw-link`/`pactl`), NDJSON on
-//! stdout, commands on stdin. Optional `--features pipewire` builds a
-//! registry-subscribe upgrade that still emits the same schema.
+//! `pw-dump` + `wpctl` / `pw-link` / `pactl`, NDJSON on stdout, commands
+//! on stdin. Native libpipewire subscribe is parked for v1.0 (`native.rs`
+//! is not compiled).
 //!
-//! Subcommands used by QML when Process.stdin is unavailable:
 //!   loomd --cli            daemon (CLI poller)
 //!   loomd --dump           oneshot snapshot
 //!   loomd --cmd 'json'     oneshot command
@@ -12,8 +11,6 @@
 
 mod cli;
 mod graph;
-#[cfg(feature = "pipewire")]
-mod native;
 mod schema;
 
 use std::env;
@@ -25,7 +22,6 @@ fn print_usage() {
   loomd [--cli] [--poll-ms N] [--from-dump FILE] [--dry]
   loomd --dump [--from-dump FILE]
   loomd --cmd JSON [--from-dump FILE]
-  loomd --native
   loomd --self-test
   loomd --help"
     );
@@ -49,8 +45,6 @@ fn main() {
     }
 
     let mut dump = false;
-    let mut native = false;
-    let mut force_cli = false;
     let mut cmd: Option<String> = None;
     let mut from_dump: Option<String> = None;
     let mut poll_ms: u64 = 1000;
@@ -58,9 +52,11 @@ fn main() {
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
-            "--cli" => force_cli = true,
+            "--cli" => {}
             "--dump" => dump = true,
-            "--native" => native = true,
+            "--native" => {
+                eprintln!("loomd: native mode is parked in v1.0; using CLI poller");
+            }
             "--dry" => dry = true,
             "--cmd" => {
                 i += 1;
@@ -94,35 +90,6 @@ fn main() {
         })
     } else if let Some(json) = cmd {
         cli::run_cmd_once(&json, from_dump.as_deref())
-    } else if native && !force_cli {
-        #[cfg(feature = "pipewire")]
-        {
-            native::run()
-        }
-        #[cfg(not(feature = "pipewire"))]
-        {
-            eprintln!("loomd: built without --features pipewire; falling back to CLI");
-            cli::run_daemon(poll_ms, from_dump, dry)
-        }
-    } else if !force_cli {
-        #[cfg(feature = "pipewire")]
-        {
-            if from_dump.is_none() && !dry {
-                match native::run() {
-                    Ok(()) => Ok(()),
-                    Err(e) => {
-                        eprintln!("loomd: native failed ({e}); CLI poller");
-                        cli::run_daemon(poll_ms, from_dump, dry)
-                    }
-                }
-            } else {
-                cli::run_daemon(poll_ms, from_dump, dry)
-            }
-        }
-        #[cfg(not(feature = "pipewire"))]
-        {
-            cli::run_daemon(poll_ms, from_dump, dry)
-        }
     } else {
         cli::run_daemon(poll_ms, from_dump, dry)
     };

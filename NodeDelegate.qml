@@ -6,6 +6,8 @@ Item {
   id: node
 
   property var theme: null
+  Theme { id: tokens }
+  readonly property var pal: theme ? theme : tokens
   property var store: null
   property var nodeData: ({})
   property var ports: []
@@ -29,11 +31,11 @@ Item {
   y: nodeData && nodeData.y !== undefined ? nodeData.y : 0
   opacity: 1
 
-  readonly property color surface: theme ? theme.surface : "#1c1c1c"
-  readonly property color text: theme ? theme.text : "#f2f2f2"
-  readonly property color muted: theme ? theme.muted : "#888"
-  readonly property color accent: theme ? theme.accent : "#c8a46b"
-  readonly property color border: theme ? theme.border : "#3a3a3a"
+  readonly property color surface: pal.surface
+  readonly property color text: pal.text
+  readonly property color muted: pal.muted
+  readonly property color accent: pal.accent
+  readonly property color border: pal.border
   readonly property int radius: theme ? theme.radius : 10
 
   readonly property var inPorts: {
@@ -61,7 +63,7 @@ Item {
     id: chrome
     anchors.fill: parent
     radius: node.radius
-    color: node.selected ? (theme ? theme.selectedBg : "#2a2a2a") : node.surface
+    color: node.selected ? pal.selectedBg : node.surface
     border.width: node.selected ? 2 : 1
     border.color: node.selected ? node.accent : node.border
     Behavior on color { ColorAnimation { duration: node.themeMs } }

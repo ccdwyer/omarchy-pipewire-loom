@@ -135,15 +135,15 @@ BarWidget {
   IpcHandler {
     target: "io.github.chris.pipewire-loom"
 
-    function open(): string { root.open("{}"); return "ok" }
-    function close(): string { root.close(); return "ok" }
-    function toggle(): string { root.toggle(); return "ok" }
-    function summon(): string { root.open("{}"); return "ok" }
-    function ping(): string { return "ok" }
-    function mute(): string { return store.muteSubgraph() }
-    function spawnSink(name: string): string { return store.spawnSink(name) }
-    function dump(): string { store.requestDump(); return "ok" }
-    function status(): string {
+    function open(arg: string): string { root.open(arg && arg.length ? arg : "{}"); return "ok" }
+    function close(arg: string): string { root.close(); return "ok" }
+    function toggle(arg: string): string { root.toggle(arg && arg.length ? arg : "{}"); return "ok" }
+    function summon(arg: string): string { root.open(arg && arg.length ? arg : "{}"); return "ok" }
+    function ping(arg: string): string { return "ok" }
+    function mute(arg: string): string { return store.muteSubgraph() }
+    function spawnSink(arg: string): string { return store.spawnSink(arg) }
+    function dump(arg: string): string { store.requestDump(); return "ok" }
+    function status(arg: string): string {
       return JSON.stringify({
         opened: root.opened,
         backend: store.backendName,

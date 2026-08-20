@@ -3,10 +3,12 @@ import QtQuick
 Rectangle {
   id: help
   property var theme: null
-  radius: theme ? theme.radius : 10
-  color: theme ? theme.surface : "#1c1c1c"
+  Theme { id: tokens }
+  readonly property var pal: theme ? theme : tokens
+  radius: pal.radius
+  color: pal.surface
   border.width: 1
-  border.color: theme ? theme.border : "#3a3a3a"
+  border.color: pal.border
   width: 420
   height: col.height + 28
 
@@ -20,9 +22,9 @@ Rectangle {
 
     Text {
       text: "Loom keys"
-      color: help.theme ? help.theme.text : "#fff"
-      font.family: help.theme ? help.theme.fontFamily : "sans-serif"
-      font.pixelSize: help.theme ? help.theme.fontHeading : 16
+      color: help.pal.text
+      font.family: help.pal.fontFamily
+      font.pixelSize: help.pal.fontHeading
       font.bold: true
     }
 
@@ -43,9 +45,9 @@ Rectangle {
       delegate: Text {
         required property string modelData
         text: modelData
-        color: help.theme ? help.theme.muted : "#aaa"
-        font.family: help.theme ? help.theme.fontFamily : "sans-serif"
-        font.pixelSize: help.theme ? help.theme.fontSmall : 11
+        color: help.pal.muted
+        font.family: help.pal.fontFamily
+        font.pixelSize: help.pal.fontSmall
       }
     }
   }

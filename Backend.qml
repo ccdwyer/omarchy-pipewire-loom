@@ -9,11 +9,9 @@ import "js/Storm.js" as Storm
 import "js/Mute.js" as Mute
 import "js/ChannelMap.js" as ChannelMap
 
-// Three-tier backend:
-//   1. loomd daemon (NDJSON stdin/stdout) — native or --cli
-//   2. loomd --dump / --cmd oneshot if the daemon dies
-//   3. in-process pw-dump + wpctl/pw-link/pactl (guaranteed path)
-// After 3 daemon crashes, we stay on the CLI path and raise the compat badge.
+// v1.0 backend is the CLI path (pw-dump + wpctl + pw-link + pactl).
+// Optional loomd is the same CLI poller speaking NDJSON (not native subscribe).
+// After 3 daemon crashes, we stay on in-process CLI and raise the compat badge.
 
 Item {
   id: root
@@ -54,6 +52,8 @@ Item {
   }
 
   function writeDaemon(cmd) {
+    if (!loomdProc.running || !loomdProc.stdinEnabled)
+      return false
     try {
       if (typeof loomdProc.write === "function") {
         loomdProc.write(JSON.stringify(cmd) + "\n")
@@ -122,7 +122,8 @@ Item {
     }
     root.mode = "loomd-daemon"
     root.waitingHello = true
-    loomdProc.command = [root.loomdBin]
+    loomdProc.command = [root.loomdBin, "--cli"]
+    loomdProc.stdinEnabled = true
     loomdProc.running = true
     helloTimer.restart()
   }
@@ -348,6 +349,7 @@ Item {
   Process {
     id: loomdProc
     running: false
+    stdinEnabled: true
     stdout: SplitParser {
       onRead: function (data) {
         root.ingestText(data)

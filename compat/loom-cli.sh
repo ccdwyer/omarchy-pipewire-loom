@@ -48,6 +48,11 @@ json_num() {
   printf '%s' "$blob" | sed -n "s/.*\"$key\"[[:space:]]*:[[:space:]]*\\([0-9.][0-9.]*\\).*/\\1/p" | head -n 1
 }
 
+json_id_list() {
+  blob=$1
+  printf '%s' "$blob" | sed -n 's/.*"nodes"[[:space:]]*:[[:space:]]*\[\([^]]*\)\].*/\1/p' | tr ',' ' '
+}
+
 need() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "loom-cli.sh: $1 not on PATH" >&2
@@ -144,10 +149,8 @@ run_op() {
     destroySink|destroy-module)
       mid=${1:-}
       name=${2:-}
-      [ -n "$mid" ] || { echo "usage: destroy-module ID [Loom-name]" >&2; exit 2; }
-      if [ -n "$name" ]; then
-        verify_destroy_sink "$name" "$mid" || { echo "loom-cli.sh: refused destroy of $name/$mid" >&2; exit 1; }
-      fi
+      [ -n "$mid" ] && [ -n "$name" ] || { echo "usage: destroy-module ID Loom-name" >&2; exit 2; }
+      verify_destroy_sink "$name" "$mid" || { echo "loom-cli.sh: refused destroy of $name/$mid" >&2; exit 1; }
       if [ "${LOOM_DRY:-}" = 1 ]; then
         return 0
       fi
@@ -248,7 +251,19 @@ run_cmd_json() {
     mute|muteSubgraph)
       mute=$(json_bool mute "$json")
       [ "$mute" = "false" ] && flag=0 || flag=1
-      if run_op mute "$(json_num node "$json")" "$flag"; then
+      ids=$(json_id_list "$json")
+      if [ -z "$ids" ]; then
+        ids=$(json_num node "$json")
+      fi
+      ok=1
+      for nid in $ids; do
+        [ -n "$nid" ] || continue
+        if ! run_op mute "$nid" "$flag"; then
+          ok=0
+          break
+        fi
+      done
+      if [ "$ok" -eq 1 ] && [ -n "$ids" ]; then
         emit_ok "$id" "$op"
       else
         emit_err "$id" "$op" "exec" "mute failed"

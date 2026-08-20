@@ -434,6 +434,11 @@ test("graph: identity/channels/moduleId/port name/link endpoints count as change
   assert.ok(dq.event, "quantum change must emit")
 })
 
+test("schema.md destroySink example includes moduleId", () => {
+  const md = fs.readFileSync(path.join(ROOT, "schema.md"), "utf8")
+  assert.ok(/destroySink.*"moduleId"/.test(md.replace(/\n/g, " ")))
+})
+
 test("schema: spawnSink ok carries name and moduleId", () => {
   const ev = Schema.parseLine(
     '{"t":"ok","id":"1","op":"spawnSink","name":"Loom-Mix","moduleId":12}'

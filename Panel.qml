@@ -14,6 +14,8 @@ Item {
   property var store: null
   property var theme: null
   property var shell: null
+  Theme { id: tokens }
+  readonly property var pal: theme ? theme : tokens
   property bool opened: false
   property bool showHelp: false
   property string dragKind: ""
@@ -336,7 +338,7 @@ Item {
 
     Rectangle {
       anchors.fill: parent
-      color: root.theme ? root.theme.scrim : "#00000099"
+      color: root.pal.scrim
       opacity: root.opened ? 1 : 0
       Behavior on opacity { NumberAnimation { duration: root.motionMs } }
       Behavior on color { ColorAnimation { duration: root.themeMs } }
@@ -352,7 +354,7 @@ Item {
       height: Math.min(panel.height - (root.theme ? root.theme.gapsOut * 2 : 32), 780)
       anchors.centerIn: parent
       radius: root.theme ? root.theme.radius : 10
-      color: root.theme ? root.theme.bg : "#141414"
+      color: root.pal.bg
       borderSpec: root.theme ? root.theme.borderSpec : null
       opacity: root.opened ? 1 : 0
       scale: root.opened ? 1 : 0.98
@@ -386,7 +388,7 @@ Item {
 
           Text {
             text: "PipeWire Loom"
-            color: root.theme ? root.theme.text : "#fff"
+            color: root.pal.text
             font.family: root.theme ? root.theme.fontFamily : "sans-serif"
             font.pixelSize: root.theme ? root.theme.fontHeading : 16
             font.bold: true
@@ -400,7 +402,7 @@ Item {
                      + " · " + root.store.streamCount + " live"
                      + " · " + (root.store.viewLinks ? root.store.viewLinks.length : 0) + " wires")
                   : ""
-            color: root.theme ? root.theme.muted : "#aaa"
+            color: root.pal.muted
             font.family: root.theme ? root.theme.fontFamily : "sans-serif"
             font.pixelSize: root.theme ? root.theme.fontSmall : 11
             anchors.verticalCenter: parent.verticalCenter
@@ -413,13 +415,13 @@ Item {
             radius: 6
             color: "transparent"
             border.width: 1
-            border.color: root.theme ? root.theme.muted : "#888"
+            border.color: root.pal.muted
             anchors.verticalCenter: parent.verticalCenter
             Text {
               id: compatLabel
               anchors.centerIn: parent
               text: "compat mode"
-              color: root.theme ? root.theme.muted : "#aaa"
+              color: root.pal.muted
               font.family: root.theme ? root.theme.fontFamily : "sans-serif"
               font.pixelSize: 10
             }
@@ -431,7 +433,7 @@ Item {
             text: "Tab view  ·  m mute"
                    + (root.store && root.store.virtualSinks ? "  ·  n sink" : "")
                    + "  ·  ? keys  ·  Esc"
-            color: root.theme ? root.theme.muted : "#888"
+            color: root.pal.muted
             font.family: root.theme ? root.theme.fontFamily : "sans-serif"
             font.pixelSize: root.theme ? root.theme.fontSmall : 11
             anchors.verticalCenter: parent.verticalCenter
@@ -461,30 +463,42 @@ Item {
               // Wires under nodes.
               Repeater {
                 model: root.store ? root.store.wires : []
-                delegate: Shape {
+                delegate: Item {
                   required property var modelData
                   width: canvas.width
                   height: canvas.height
-                  preferredRendererType: Shape.CurveRenderer
-                  opacity: modelData.muted ? 0.32 : 1
-                  ShapePath {
-                    strokeWidth: modelData.live ? 2.6 : 1.4
-                    strokeColor: root.theme ? root.theme.accent : "#c8a46b"
-                    fillColor: "transparent"
-                    strokeStyle: modelData.raw ? ShapePath.DashLine : ShapePath.SolidLine
-                    dashPattern: [5, 4]
-                    capStyle: ShapePath.RoundCap
-                    startX: modelData.x1
-                    startY: modelData.y1
-                    PathCubic {
-                      x: modelData.x2
-                      y: modelData.y2
-                      control1X: modelData.x1 + Math.max(40, Math.abs(modelData.x2 - modelData.x1) * 0.45)
-                      control1Y: modelData.y1
-                      control2X: modelData.x2 - Math.max(40, Math.abs(modelData.x2 - modelData.x1) * 0.45)
-                      control2Y: modelData.y2
+                  Shape {
+                    anchors.fill: parent
+                    preferredRendererType: Shape.CurveRenderer
+                    opacity: modelData.muted ? 0.32 : 1
+                    ShapePath {
+                      strokeWidth: modelData.live ? 2.6 : 1.4
+                      strokeColor: root.pal.accent
+                      fillColor: "transparent"
+                      strokeStyle: modelData.raw ? ShapePath.DashLine : ShapePath.SolidLine
+                      dashPattern: [5, 4]
+                      capStyle: ShapePath.RoundCap
+                      startX: modelData.x1
+                      startY: modelData.y1
+                      PathCubic {
+                        x: modelData.x2
+                        y: modelData.y2
+                        control1X: modelData.x1 + Math.max(40, Math.abs(modelData.x2 - modelData.x1) * 0.45)
+                        control1Y: modelData.y1
+                        control2X: modelData.x2 - Math.max(40, Math.abs(modelData.x2 - modelData.x1) * 0.45)
+                        control2Y: modelData.y2
+                      }
+                      Behavior on strokeColor { ColorAnimation { duration: root.themeMs } }
                     }
-                    Behavior on strokeColor { ColorAnimation { duration: root.themeMs } }
+                  }
+                  Text {
+                    visible: modelData.latencyMs !== undefined && modelData.latencyMs !== null
+                    x: (modelData.x1 + modelData.x2) / 2 - width / 2
+                    y: (modelData.y1 + modelData.y2) / 2 - height / 2
+                    text: "buf ≈ " + Number(modelData.latencyMs).toFixed(1) + "ms"
+                    color: root.pal.muted
+                    font.family: root.pal.fontFamily
+                    font.pixelSize: root.pal.fontSmall
                   }
                 }
               }
@@ -496,7 +510,7 @@ Item {
                 preferredRendererType: Shape.CurveRenderer
                 ShapePath {
                   strokeWidth: 2
-                  strokeColor: root.theme ? root.theme.accent : "#c8a46b"
+                  strokeColor: root.pal.accent
                   fillColor: "transparent"
                   strokeStyle: ShapePath.DashLine
                   dashPattern: [4, 4]
@@ -599,7 +613,7 @@ Item {
             visible: root.store && root.store.emptyGraph
             anchors.centerIn: parent
             text: "No audio streams — play something"
-            color: root.theme ? root.theme.muted : "#888"
+            color: root.pal.muted
             font.family: root.theme ? root.theme.fontFamily : "sans-serif"
             font.pixelSize: root.theme ? root.theme.fontHeading : 16
           }
@@ -612,14 +626,14 @@ Item {
             width: toastText.width + 20
             height: 28
             radius: 8
-            color: root.theme ? root.theme.surface : "#1c1c1c"
+            color: root.pal.surface
             border.width: 1
-            border.color: root.theme ? root.theme.border : "#333"
+            border.color: root.pal.border
             Text {
               id: toastText
               anchors.centerIn: parent
               text: root.store ? root.store.lastToast : ""
-              color: root.theme ? root.theme.text : "#fff"
+              color: root.pal.text
               font.family: root.theme ? root.theme.fontFamily : "sans-serif"
               font.pixelSize: root.theme ? root.theme.fontSmall : 11
             }

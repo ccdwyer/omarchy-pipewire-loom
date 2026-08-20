@@ -567,6 +567,15 @@ where
     n
 }
 
+/// Stamp `next.gen` from `prev`. Unchanged graphs keep `prev.gen`;
+/// any protocol change increments it. The caller must store the returned
+/// graph so generations stay monotonic past 1.
+pub fn stamp_gen(prev: &Graph, mut next: Graph) -> (Graph, usize) {
+    let n = change_count(prev, &next);
+    next.gen = if n == 0 { prev.gen } else { prev.gen + 1 };
+    (next, n)
+}
+
 pub fn change_count(a: &Graph, b: &Graph) -> usize {
     let mut n = list_changes(&a.nodes, &b.nodes, |x| x.id)
         + list_changes(&a.ports, &b.ports, |x| x.id)
@@ -816,6 +825,43 @@ mod tests {
         c = b.clone();
         c.links[0].latency_ms = Some(5.0);
         assert!(change_count(&b, &c) >= 1);
+    }
+
+    #[test]
+    fn stamp_gen_increments_and_stores() {
+        let mut a = Graph::default();
+        a.gen = 1;
+        a.nodes.push(Node {
+            id: 1,
+            serial: 1,
+            name: "ff".into(),
+            nick: "Firefox".into(),
+            app: "Firefox".into(),
+            media_class: "Stream/Output/Audio".into(),
+            kind: "source".into(),
+            state: "idle".into(),
+            mute: false,
+            volume: 1.0,
+            is_default: false,
+            is_capture: false,
+            is_loom: false,
+            channels: vec![],
+            identity: "Firefox|Stream/Output/Audio|0".into(),
+            module_id: None,
+        });
+        let (same, n0) = stamp_gen(&a, a.clone());
+        assert_eq!(n0, 0);
+        assert_eq!(same.gen, 1);
+        let mut b = a.clone();
+        b.nodes[0].state = "running".into();
+        let (changed, n1) = stamp_gen(&a, b);
+        assert!(n1 >= 1);
+        assert_eq!(changed.gen, 2);
+        let mut c = changed.clone();
+        c.nodes[0].mute = true;
+        let (again, n2) = stamp_gen(&changed, c);
+        assert!(n2 >= 1);
+        assert_eq!(again.gen, 3);
     }
 
     #[test]

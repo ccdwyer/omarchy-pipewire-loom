@@ -15,7 +15,7 @@ Conservative choices where the Omarchy / Quickshell / PipeWire API was not 100% 
 ## Quickshell
 
 - **`Process` + `StdioCollector` (waitForEnd)** is the documented mutation / oneshot path, copied from desktop-undo. Used for `pw-dump`, `wpctl`, `pw-link`, `pactl`, and `loomd --dump` / `--cmd`.
-- **`Process` stdin** (`stdinEnabled`, `write()`) is **not** clearly documented. Daemon mode tries `write()` inside try/catch and falls back to `--cmd` oneshots if it throws or is missing. `SplitParser.onRead` is used for daemon stdout; if that type is absent the host will fail to load `Backend.qml` — in that case the user still has the CLI path only after commenting the daemon `Process` out. Recorded so a later spike can swap in a Unix socket if needed.
+- **`Process` stdin.** Quickshell defaults stdin to disabled; `write()` then silently does nothing. `loomdProc` sets `stdinEnabled: true` before launch. `writeDaemon()` returns success only when the process is running **and** `stdinEnabled` is true; otherwise mutations go through `--cmd` / in-process CLI. Documented in the v0.3 Process type.
 - **`FileView.setText` / `text()` / `atomicWrites`** for `state.json`. Mode 0600 is not documented on FileView; positions are not secret, so we do not chmod. The parent directory is created with `mkdir -p` before `statePath` is set so a fresh machine does not silently fail persistence.
 - **`Repeater` over a JS array of objects** with `required property var modelData` — Qt 6 Quickshell. If a host only offers `ListModel`, GraphStore.revision already forces a rebuild; swapping to ListModel is local to GraphStore.
 - **`QtQuick.Shapes` `ShapePath` cubic + DashLine** for wires. Conservative: one Shape per wire, not a custom scene graph.
@@ -35,10 +35,10 @@ Conservative choices where the Omarchy / Quickshell / PipeWire API was not 100% 
 
 ## Helper
 
-- Spec language is Rust, dynamically linked against system libpipewire. The `pipewire` crate API is feature-gated (`--features pipewire`) and isolated in `src/loomd/src/native.rs`. `build.sh` tries that feature, then CLI-only. It does **not** install `compat/loom-cli.sh` as `bin/loomd` — that wrapper is not a daemon and would crash the QML hello/retry loop. Missing `bin/loomd` is the supported compat path. `compat/loom-cli.sh` implements `--dump` / `--cmd` oneshots and sanitizes sink names the same way as JS/Rust.
-- Native mode, if it compiles, subscribes to the registry **and re-dumps on a 1s clock**. Registry add/remove does not fire for param/mute/volume/metadata or same-ID link property changes; the clock covers those. Snapshots are skipped when `change_count` is 0.
-- Default `loomd` (no flags): try native when built with the feature, else CLI poller. `--cli` forces the poller. The change detector uses complete `PartialEq` on every serialized field (including channels, identity, moduleId, port name/physical, link endpoints/latency, quantum/rate/latency).
-- **destroySink** requires a `Loom-*` name **and** a live `module-null-sink` whose id currently matches that exact name. A stale or crafted moduleId is denied.
+- **v1.0 ships the CLI backend only.** Native libpipewire subscribe is parked (`native.rs` is not a crate module; `Cargo.toml` has no `pipewire` feature; `build.sh` never passes `--features pipewire`). `loomd` is an optional NDJSON wrapper around the same `pw-dump` poller.
+- Daemon poller stamps `next.gen = prev.gen + 1` **and stores that graph** before emitting, so generations stay monotonic past 1 (`graph::stamp_gen`).
+- **destroySink / destroy-module** always require **both** a `Loom-*` name and a module id, then verify the live exact match. There is no id-only unload path.
+- IpcHandler methods follow `call <id> <method> <arg>` and all take `arg: string` (including `toggle`).
 - Port-to-port drag maps `MouseArea` `ev.x`/`ev.y` into the graph canvas (`mapToItem`). Port MouseAreas do not set `preventStealing`, so the pointer is not glued to the port center.
 - Nested `Panel.qml` declares `moduleName: "io.github.chris.pipewire-loom"` to match the bar widget.
 

@@ -1,12 +1,12 @@
-//! Optional libpipewire subscriber.
+//! PARKED for v1.0 — not compiled, not shipped.
 //!
-//! Isolated behind `--features pipewire`. The crate API of `pipewire` 0.8
-//! varies slightly across point releases, so this module is a thin
-//! registry listener that dirties the graph and re-parses via `pw-dump`
-//! (same schema as the CLI path). Mutations still go through wpctl.
+//! The tribunal review designated the CLI backend (`pw-dump` + `wpctl` +
+//! `pw-link`) as the guaranteed path. A subscription-driven native
+//! backend is out of scope until it extracts graph state from protocol
+//! events without polling `pw-dump`.
 //!
-//! If this file fails to compile on a given Arch image, `build.sh` drops
-//! the feature and ships the CLI binary.
+//! This file is kept as a sketch. `main.rs` does not `mod native`.
+//! `Cargo.toml` has no `pipewire` feature.
 
 #![cfg(feature = "pipewire")]
 
