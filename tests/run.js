@@ -351,6 +351,15 @@ test("layout copies nodes so QML can see x/y updates", () => {
   assert.ok(typeof vis.x === "number")
 })
 
+test("node boxes move their Item on drag, not only JS x/y", () => {
+  const src = fs.readFileSync(path.join(ROOT, "NodeDelegate.qml"), "utf8")
+  assert.ok(src.indexOf("node.x += dx") >= 0)
+  assert.ok(src.indexOf("x: nodeData") < 0)
+  assert.ok(src.indexOf("function applyLayout()") >= 0)
+  const overlay = fs.readFileSync(path.join(ROOT, "LoomOverlay.qml"), "utf8")
+  assert.ok(overlay.indexOf("recreating boxes steals the grab") >= 0)
+})
+
 test("overlay moves a playback stream onto a sink instead of pw-link", () => {
   const src = fs.readFileSync(path.join(ROOT, "LoomOverlay.qml"), "utf8")
   assert.ok(src.indexOf("moveStream") >= 0)

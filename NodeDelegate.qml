@@ -27,9 +27,23 @@ Item {
 
   width: nodeData && nodeData.w ? nodeData.w : 196
   height: nodeData && nodeData.h ? nodeData.h : 88
-  x: nodeData && nodeData.x !== undefined ? nodeData.x : 0
-  y: nodeData && nodeData.y !== undefined ? nodeData.y : 0
+  // x/y are NOT bound to nodeData.x/y: QML does not see JS field mutations,
+  // so a binding here leaves the box stuck while persistPosition moves wires.
+  x: 0
+  y: 0
   opacity: 1
+
+  function applyLayout() {
+    if (body && body.dragging)
+      return
+    x = (nodeData && nodeData.x !== undefined) ? nodeData.x : 0
+    y = (nodeData && nodeData.y !== undefined) ? nodeData.y : 0
+    width = (nodeData && nodeData.w) ? nodeData.w : 196
+    height = (nodeData && nodeData.h) ? nodeData.h : 88
+  }
+
+  onNodeDataChanged: applyLayout()
+  Component.onCompleted: applyLayout()
 
   readonly property color surface: pal.surface
   readonly property color text: pal.text
@@ -105,7 +119,9 @@ Item {
       if (!body.dragging && (Math.abs(dx) + Math.abs(dy) < 4))
         return
       body.dragging = true
-      node.bodyDragged(node.nodeData, node.x + dx, node.y + dy)
+      node.x += dx
+      node.y += dy
+      node.bodyDragged(node.nodeData, node.x, node.y)
     }
     onReleased: function (ev) {
       node.bodyReleased(node.nodeData)

@@ -475,10 +475,9 @@ Item {
                 var _ = root.store ? root.store.revision : 0
                 return (root.store && root.store.wires) ? root.store.wires : []
               }
-              readonly property var nodeModel: {
-                var _ = root.store ? root.store.revision : 0
-                return (root.store && root.store.viewNodes) ? root.store.viewNodes : []
-              }
+              // Do not key nodes on revision: persistPosition bumps it every
+              // drag pixel to refresh wires, and recreating boxes steals the grab.
+              readonly property var nodeModel: (root.store && root.store.viewNodes) ? root.store.viewNodes : []
 
               // Wires under nodes.
               Repeater {
