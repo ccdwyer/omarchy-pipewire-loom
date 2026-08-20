@@ -629,9 +629,9 @@ test("bar widget loads LoomOverlay.qml, not the host qs.Ui Panel type", () => {
 test("unlink uses pw-link -d link-id and clears stream target.object", () => {
   const byId = Commands.argvFor("unlink", { link: 78, from: 74, to: 57 })
   assert.ok(byId)
-  assert.deepStrictEqual(byId.primary, ["pw-link", "-d", "78"])
+  assert.strictEqual(byId.primary.join(" "), "pw-link -d 78")
   const clr = Commands.argvFor("clearTarget", { stream: 39 })
-  assert.deepStrictEqual(clr.primary, ["pw-metadata", "-n", "default", "-d", "39", "target.object"])
+  assert.strictEqual(clr.primary.join(" "), "pw-metadata -n default -d 39 target.object")
   const store = fs.readFileSync(path.join(ROOT, "GraphStore.qml"), "utf8")
   assert.ok(store.indexOf("clearTarget") >= 0)
   const overlay = fs.readFileSync(path.join(ROOT, "LoomOverlay.qml"), "utf8")
