@@ -49,13 +49,13 @@ Click the bar chip (default sink + live stream count; red badge if a capture nod
 The plugin does **not** write `hyprland.conf`. Bind a key yourself:
 
 ```
-bind = SUPER SHIFT, A, exec, omarchy-shell shell call io.github.chris.pipewire-loom toggle '{}'
+bind = SUPER SHIFT, A, exec, omarchy-shell io.github.chris.pipewire-loom toggle '{}'
 ```
 
-This plugin is a bar-widget only — do not `shell summon` it. Click the chip, or:
+This plugin is a bar-widget only — do not `shell summon` or `shell call` it (`shell call` hits overlay/panel loaders; this plugin has neither). Click the chip, or the bar-widget `IpcHandler`:
 
 ```
-omarchy-shell shell call io.github.chris.pipewire-loom toggle '{}'
+omarchy-shell io.github.chris.pipewire-loom toggle '{}'
 ```
 
 ## Settings

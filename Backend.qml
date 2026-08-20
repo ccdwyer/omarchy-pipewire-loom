@@ -345,7 +345,7 @@ Item {
       id: workOut
       waitForEnd: true
     }
-    onExited: {
+    onExited: function(exitCode) {
       var text = workOut.text
       var job = root.workCurrent
       root.workCurrent = null
@@ -387,7 +387,7 @@ Item {
         root.ingestText(data)
       }
     }
-    onExited: {
+    onExited: function() {
       if (root.mode !== "loomd-daemon")
         return
       root.crashes += 1

@@ -57,7 +57,7 @@ BarWidget {
     id: mkdirProc
     command: ["mkdir", "-p", root.stateHome]
     running: true
-    onExited: {
+    onExited: function() {
       store.statePath = root.stateHome + "/state.json"
     }
   }
