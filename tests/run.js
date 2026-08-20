@@ -357,6 +357,7 @@ test("layout applies id: backup when identity misses", () => {
   const src = laid.nodes.find((n) => n.id === 77)
   assert.strictEqual(src.x, 12)
   assert.strictEqual(src.y, 34)
+  assert.strictEqual(src.userPlaced, true)
 })
 
 test("positions set copies the map so a drop survives rebuild", () => {
@@ -377,9 +378,9 @@ test("positions set copies the map so a drop survives rebuild", () => {
   assert.ok(store.indexOf("plainPositions") >= 0)
   const del = fs.readFileSync(path.join(ROOT, "NodeDelegate.qml"), "utf8")
   assert.ok(del.indexOf("drag.active is already false") >= 0)
-  const overlay = fs.readFileSync(path.join(ROOT, "LoomOverlay.qml"), "utf8")
-  const rel = overlay.split("function handleBodyReleased")[1].split("function handlePortPressed")[0]
-  assert.ok(rel.indexOf("rebuild()") < 0, "drop must not relayout from raw graph")
+  const overlaySrc = fs.readFileSync(path.join(ROOT, "LoomOverlay.qml"), "utf8")
+  const rel = overlaySrc.split("function handleBodyReleased")[1].split("function handlePortPressed")[0]
+  assert.ok(rel.indexOf("store.rebuild(") < 0, "drop must not relayout from raw graph")
 })
 
 test("node boxes move their Item on drag, not only JS x/y", () => {

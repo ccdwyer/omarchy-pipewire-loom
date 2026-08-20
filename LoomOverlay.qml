@@ -148,8 +148,8 @@ Item {
     if (root.dragKind === "node") {
       if (root.store) {
         // Persist the drop into viewNodes + positions, then redraw wires
-        // from those same nodes. Do NOT rebuild() from raw here: that
-        // relayouts to the default columns and snaps the cables back.
+        // from those same nodes. Relayout from the raw graph here would
+        // put cables back on the default columns.
         root.store.persistPosition(nodeData.id, nodeData.x, nodeData.y, true)
         root.store.dragging = false
       }

@@ -103,9 +103,10 @@ function layout(nodes, ports, positions) {
             }
             n.w = NODE_W
             n.h = h
-            // Collision nudge against already placed nodes in this pass.
+            // Collision nudge only for auto-placed nodes. A user drop must
+            // keep its coordinates or wires snap back on the next rebuild.
             var guard = 0
-            while (guard < 24) {
+            while (!n.userPlaced && guard < 24) {
                 var hit = false
                 for (var p = 0; p < placed.length; p++) {
                     if (overlap(n, placed[p])) {
