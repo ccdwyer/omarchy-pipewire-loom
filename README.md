@@ -46,16 +46,19 @@ Click the bar chip (default sink + live stream count; red badge if a capture nod
 | `?` | Key overlay |
 | Right-click the chip | Toggle simple / full view without opening the panel |
 
-Super+Shift+A is Omarchy's ChatGPT bind and Super+L is layout, so Loom prefers
-Super+Shift+L. On first load the plugin writes that bind to
-`~/.config/hypr/bindings.lua` if the combo is free, then pops an Omarchy
-notification with the key it assigned. Occupied shortcuts are skipped;
-Super+Shift+L falls back to Super+Alt+L. It never unbinds someone else's key,
-and it will not notify again once its bind is already live. Bar-widget
-`claimAuto` keeps two monitors from double-notifying.
+The bar chip always has a hotkey control next to it. The plugin does not write
+`~/.config/hypr/bindings.lua` until you opt in. If no Loom bind is installed, the
+bar shows **Set hotkey**. Click it to opt in; the plugin suggests Super+Shift+L
+(Omarchy already uses Super+L for layout and Super+Shift+A for ChatGPT). If that
+combo is taken it offers Super+Alt+L instead. Occupied shortcuts are skipped.
+The plugin never `hl.unbind`s someone else's key.
+
+Once a hotkey is set, the bar shows the current combo. Click it to **Change**
+(to the free alternate) or **Remove hotkey**, which deletes only this plugin's
+marked block in `bindings.lua`.
 
 ```
-bind = SUPER SHIFT, L, exec, omarchy-shell io.github.chris.pipewire-loom toggle '{}'
+o.bind("SUPER + SHIFT + L", "PipeWire Loom", "omarchy-shell io.github.chris.pipewire-loom toggle '{}'")
 ```
 
 This plugin is a bar-widget only — do not `shell summon` or `shell call` it (`shell call` hits overlay/panel loaders; this plugin has neither). Click the chip, or the bar-widget `IpcHandler`:
@@ -63,6 +66,7 @@ This plugin is a bar-widget only — do not `shell summon` or `shell call` it (`
 ```
 omarchy-shell io.github.chris.pipewire-loom toggle '{}'
 omarchy-shell io.github.chris.pipewire-loom installBinds ''
+omarchy-shell io.github.chris.pipewire-loom removeBinds ''
 ```
 
 ## Settings
@@ -101,6 +105,18 @@ compat/loom-cli.sh move <stream-id> <sink-object.serial-or-node.name>
 omarchy plugin remove io.github.chris.pipewire-loom
 ```
 
+If you clicked **Set hotkey**, also remove this plugin's marked block from
+`~/.config/hypr/bindings.lua` (or click **Remove hotkey** on the bar first):
+
+```lua
+-- BEGIN io.github.chris.pipewire-loom
+o.bind("SUPER + SHIFT + L", "PipeWire Loom", "omarchy-shell io.github.chris.pipewire-loom toggle '{}'")
+-- END io.github.chris.pipewire-loom
+```
+
+Hyprland reloads on save. Do not `hl.unbind` other people's keys; only delete
+this plugin's BEGIN/END block.
+
 ## Honest limitations
 
 - **Wires light up when the source stream is `running`.** This is not per-route peak metering. Metering was a gated stretch and is not in 1.0.
@@ -110,7 +126,7 @@ omarchy plugin remove io.github.chris.pipewire-loom
 - **Latency labels** appear per-route only when a route's quantum differs from the graph default. Same-number-on-every-wire is noise and is omitted.
 - **Simple view is presentation-only.** MIDI, monitor ports, and virtual-duplex nodes are hidden; they still exist in PipeWire.
 - **No native PipeWire subscribe in 1.0.** `src/loomd/src/native.rs` is parked and not compiled. `build.sh` builds the CLI poller only.
-- **Keybinds auto-assign on first load.** Occupied combos are skipped. Never `hl.unbind`. No notify once binds are already live.
+- **Keybinds are opt-in from the bar.** No first-load rewrite of `bindings.lua`. Occupied combos are skipped. Never `hl.unbind`.
 - **No second Quickshell process, no omarchy.* id.**
 
 ## Tests (off-device)

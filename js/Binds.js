@@ -4,6 +4,9 @@
 // Lua binds show up as dispatcher "__lua" with a description, not the
 // omarchy-shell command in `arg`, so "ours" is plugin-id in arg OR our
 // descriptions.
+//
+// Never writes config. The bar offers Set / Change / Remove; only an
+// explicit click calls install-binds.py. Occupied combos are skipped.
 
 var PLUGIN_ID = "io.github.chris.pipewire-loom"
 var SUPER = 64
@@ -29,16 +32,11 @@ var offer = {
     note: "",
     installed: 0,
     toAdd: [],
-    skipped: []
-}
-
-var autoClaimed = false
-
-function claimAuto() {
-    if (autoClaimed)
-        return false
-    autoClaimed = true
-    return true
+    skipped: [],
+    current: "",
+    suggested: "",
+    changeTo: "",
+    changeItem: null
 }
 
 function setOffer(next) {
@@ -96,6 +94,57 @@ function oursCount(binds) {
     return n
 }
 
+function liveOurs(binds) {
+    var out = []
+    var list = binds || []
+    for (var i = 0; i < list.length; i++) {
+        if (isOurs(list[i]))
+            out.push(list[i])
+    }
+    return out
+}
+
+function prettyKeys(modmask, key) {
+    var parts = []
+    var m = Number(modmask) || 0
+    if (m & SUPER)
+        parts.push("SUPER")
+    if (m & CTRL)
+        parts.push("CTRL")
+    if (m & ALT)
+        parts.push("ALT")
+    if (m & SHIFT)
+        parts.push("SHIFT")
+    if (key)
+        parts.push(String(key).toUpperCase())
+    return parts.join(" + ")
+}
+
+function humanKeys(keys) {
+    var raw = String(keys || "").trim()
+    if (!raw)
+        return ""
+    return raw.split(" + ").map(function(part) {
+        var u = String(part || "").toUpperCase()
+        if (u === "SUPER")
+            return "Super"
+        if (u === "SHIFT")
+            return "Shift"
+        if (u === "ALT")
+            return "Alt"
+        if (u === "CTRL" || u === "CONTROL")
+            return "Ctrl"
+        return part
+    }).join("+")
+}
+
+function currentKeys(binds) {
+    var ours = liveOurs(binds)
+    if (!ours.length)
+        return ""
+    return prettyKeys(ours[0].modmask, keyOf(ours[0]))
+}
+
 function comboOwner(binds, modmask, key) {
     var want = String(key || "").toUpperCase()
     var list = binds || []
@@ -110,6 +159,28 @@ function comboOwner(binds, modmask, key) {
         return { ours: false, desc: String(b.description || b.dispatcher || "already bound") }
     }
     return null
+}
+
+function candidateCombos(candidate) {
+    var list = [{
+        keys: candidate.keys,
+        modmask: candidate.modmask,
+        key: candidate.key,
+        desc: candidate.desc,
+        cmd: candidate.cmd
+    }]
+    var alts = candidate.alternates || []
+    for (var i = 0; i < alts.length; i++) {
+        var a = alts[i]
+        list.push({
+            keys: a.keys,
+            modmask: a.modmask,
+            key: a.key,
+            desc: candidate.desc,
+            cmd: candidate.cmd
+        })
+    }
+    return list
 }
 
 function pickCombo(binds, candidate) {
@@ -136,6 +207,31 @@ function pickCombo(binds, candidate) {
     return { skipped: true, keys: candidate.keys, desc: candidate.desc, conflict: owner.desc }
 }
 
+function changeItemFor(binds) {
+    var current = currentKeys(binds)
+    if (!current)
+        return null
+    for (var i = 0; i < CANDIDATES.length; i++) {
+        var combos = candidateCombos(CANDIDATES[i])
+        for (var j = 0; j < combos.length; j++) {
+            var item = combos[j]
+            if (item.keys === current)
+                continue
+            if (comboOwner(binds, item.modmask, item.key))
+                continue
+            return {
+                keys: item.keys,
+                modmask: item.modmask,
+                key: item.key,
+                desc: item.desc,
+                cmd: item.cmd,
+                chosen: item.keys
+            }
+        }
+    }
+    return null
+}
+
 function plan(binds) {
     var toAdd = []
     var skipped = []
@@ -149,24 +245,39 @@ function plan(binds) {
         else
             toAdd.push(pick)
     }
-    var liveOurs = oursCount(binds)
-    if (liveOurs > 0)
-        already = Math.max(already, liveOurs)
+    var liveOursN = oursCount(binds)
+    if (liveOursN > 0)
+        already = Math.max(already, liveOursN)
     var needed = already === 0
     if (!needed)
         toAdd = []
+    var current = currentKeys(binds)
+    var changeItem = changeItemFor(binds)
+    var suggested = toAdd.length ? (toAdd[0].chosen || toAdd[0].keys) : ""
+    var preferred = CANDIDATES[0].keys
     var note = ""
     if (!needed)
-        note = ""
+        note = humanKeys(current)
     else if (!toAdd.length && skipped.length)
-        note = skipped.map(function(s) { return s.keys + " is " + (s.conflict || "taken") }).join("; ")
+        note = skipped.map(function(s) { return humanKeys(s.keys) + " is " + (s.conflict || "taken") }).join("; ")
     else if (toAdd.length) {
-        var bits = toAdd.map(function(p) { return p.chosen || p.keys })
-        note = "Add " + bits.join(", ")
+        note = "Suggested " + humanKeys(suggested)
+        if (suggested !== preferred)
+            note += " (" + humanKeys(preferred) + " is taken)"
         for (var s = 0; s < skipped.length; s++)
-            note += " — skipped " + skipped[s].keys + " (" + skipped[s].conflict + ")"
+            note += " — skipped " + humanKeys(skipped[s].keys) + " (" + skipped[s].conflict + ")"
     }
-    return { needed: needed, already: already, toAdd: toAdd, skipped: skipped, note: note }
+    return {
+        needed: needed,
+        already: already,
+        toAdd: toAdd,
+        skipped: skipped,
+        note: note,
+        current: current,
+        suggested: suggested,
+        changeTo: changeItem ? (changeItem.chosen || changeItem.keys) : "",
+        changeItem: changeItem
+    }
 }
 
 function luaLine(item) {

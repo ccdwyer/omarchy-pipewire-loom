@@ -5,6 +5,8 @@ const fs = require("fs")
 const path = require("path")
 const vm = require("vm")
 const assert = require("assert")
+const os = require("os")
+const { execFileSync } = require("child_process")
 
 const ROOT = path.resolve(__dirname, "..")
 const JS = path.join(ROOT, "js")
@@ -559,6 +561,13 @@ test("readme: enable + defaultSection, no bar put / summon", () => {
   assert.ok(md.indexOf("omarchy bar put") < 0)
   assert.ok(md.indexOf("shell summon io.github.chris.pipewire-loom") < 0)
   assert.ok(md.indexOf("toggle '{}'") >= 0)
+  assert.ok(md.indexOf("On first load") < 0)
+  assert.ok(md.indexOf("Set hotkey") >= 0)
+  const remove = md.split("## Remove")[1]
+  assert.ok(remove, "README must have ## Remove")
+  assert.ok(remove.indexOf("~/.config/hypr/bindings.lua") >= 0)
+  assert.ok(remove.indexOf("-- BEGIN io.github.chris.pipewire-loom") >= 0)
+  assert.ok(remove.indexOf("-- END io.github.chris.pipewire-loom") >= 0)
 })
 
 test("binds: empty live list offers SUPER+SHIFT+L", () => {
@@ -566,8 +575,11 @@ test("binds: empty live list offers SUPER+SHIFT+L", () => {
   assert.strictEqual(p.needed, true)
   assert.strictEqual(p.toAdd.length, 1)
   assert.strictEqual(p.toAdd[0].chosen, "SUPER + SHIFT + L")
+  assert.strictEqual(p.suggested, "SUPER + SHIFT + L")
+  assert.strictEqual(p.current, "")
   assert.ok(Binds.luaBlock(p.toAdd).indexOf("o.bind(\"SUPER + SHIFT + L\"") === 0)
   assert.ok(p.toAdd[0].chosen !== "SUPER + SHIFT + A")
+  assert.ok(Binds.luaBlock(p.toAdd).indexOf("hl.unbind") < 0)
 })
 
 test("binds: stock ChatGPT SUPER+SHIFT+A is not stolen", () => {
@@ -593,6 +605,9 @@ test("binds: already-ours via lua description hides the offer", () => {
   const p = Binds.plan(live)
   assert.strictEqual(p.needed, false)
   assert.strictEqual(p.toAdd.length, 0)
+  assert.strictEqual(p.current, "SUPER + SHIFT + L")
+  assert.strictEqual(p.changeTo, "SUPER + ALT + L")
+  assert.strictEqual(Binds.humanKeys(p.current), "Super+Shift+L")
 })
 
 test("binds: notify body lists assigned keys", () => {
@@ -606,17 +621,53 @@ test("binds: notify body lists assigned keys", () => {
   assert.strictEqual(argv[7], "PipeWire Loom keybindings")
 })
 
-test("binds: claimAuto is one-shot", () => {
-  assert.strictEqual(Binds.claimAuto(), true)
-  assert.strictEqual(Binds.claimAuto(), false)
+test("binds: no claimAuto / no auto-assign helpers", () => {
+  const src = fs.readFileSync(path.join(ROOT, "js/Binds.js"), "utf8")
+  assert.ok(src.indexOf("claimAuto") < 0)
+  assert.ok(src.indexOf("hl.unbind") < 0)
+  assert.ok(src.indexOf("unbind(") < 0)
+  assert.ok(typeof Binds.claimAuto !== "function")
 })
 
-test("qml: no keys chip; bar widget auto-claims", () => {
+test("qml: bar offers Set hotkey, never auto-installs", () => {
   const src = fs.readFileSync(path.join(ROOT, "BarWidget.qml"), "utf8")
-  assert.ok(src.indexOf("Add keybindings") < 0)
-  assert.ok(src.indexOf('text: "keys"') < 0)
-  assert.ok(src.indexOf("Binds.claimAuto()") >= 0)
-  assert.ok(src.indexOf("notifyArgv(") >= 0)
+  assert.ok(src.indexOf("Set hotkey") >= 0)
+  assert.ok(src.indexOf("Remove hotkey") >= 0)
+  assert.ok(src.indexOf("Change to") >= 0)
+  assert.ok(src.indexOf("--remove") >= 0)
+  assert.ok(src.indexOf("claimAuto") < 0)
+  assert.ok(src.indexOf('installBinds("auto")') < 0)
+  assert.ok(src.indexOf("hl.unbind") < 0)
+  const scan = src.split("function scanBinds")[1].split("function notifyNewBinds")[0]
+  assert.ok(scan.indexOf("installBinds") < 0, "scanBinds must not write binds")
+  assert.ok(scan.indexOf("writeLuaBlock") < 0, "scanBinds must not write binds")
+})
+
+test("install-binds.py writes and removes only the marked block", () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "loom-binds-"))
+  const hypr = path.join(tmp, "hypr")
+  fs.mkdirSync(hypr, { recursive: true })
+  const dest = path.join(hypr, "bindings.lua")
+  fs.writeFileSync(
+    dest,
+    "-- Keep only your personal keybinding overrides here.\n\n-- BEGIN other.plugin\no.bind(\"SUPER + Q\", \"Other\", \"true\")\n-- END other.plugin\n"
+  )
+  const py = path.join(ROOT, "compat/install-binds.py")
+  const env = Object.assign({}, process.env, { XDG_CONFIG_HOME: tmp })
+  const lua =
+    'o.bind("SUPER + SHIFT + L", "PipeWire Loom", "omarchy-shell io.github.chris.pipewire-loom toggle \'{}\'")'
+  execFileSync("python3", [py, "io.github.chris.pipewire-loom", lua], { env, encoding: "utf8" })
+  let text = fs.readFileSync(dest, "utf8")
+  assert.ok(text.indexOf("-- BEGIN io.github.chris.pipewire-loom") >= 0)
+  assert.ok(text.indexOf("SUPER + SHIFT + L") >= 0)
+  assert.ok(text.indexOf("other.plugin") >= 0)
+  assert.ok(text.indexOf("hl.unbind") < 0)
+  execFileSync("python3", [py, "--remove", "io.github.chris.pipewire-loom"], { env, encoding: "utf8" })
+  text = fs.readFileSync(dest, "utf8")
+  assert.ok(text.indexOf("pipewire-loom") < 0)
+  assert.ok(text.indexOf("-- BEGIN other.plugin") >= 0)
+  assert.ok(text.indexOf("Keep only your personal") >= 0)
+  fs.rmSync(tmp, { recursive: true, force: true })
 })
 
 test("bar widget loads LoomOverlay.qml, not the host qs.Ui Panel type", () => {

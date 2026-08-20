@@ -46,6 +46,6 @@ Conservative choices where the Omarchy / Quickshell / PipeWire API was not 100% 
 
 - Real per-route peak metering (tribunal rejected as v1).
 - A "demo scene" macro (tribunal rejected).
-- Writing Hyprland config: on first load the bar widget assigns a free combo (never Super+L or Super+Shift+A) into a marked `o.bind` block in `~/.config/hypr/bindings.lua`, then `omarchy notification send`s the assigned keys. Occupied combos are skipped or replaced with Super+Alt+L. `Binds.claimAuto()` is one-shot so two monitors do not double-notify. Never `hl.unbind`. No notify once binds are already live.
+- Writing Hyprland config is opt-in from the bar. Scan is read-only (`hyprctl -j binds`). **Set hotkey** / **Change** / **Remove hotkey** are the only writers; they call `compat/install-binds.py` for a marked `o.bind` block in `~/.config/hypr/bindings.lua`. Suggested combo is Super+Shift+L (never Super+L or Super+Shift+A), falling back to Super+Alt+L if taken. Occupied combos are skipped. Never `hl.unbind`. No write on first load.
 - A second Quickshell process.
 - The `omarchy.*` id namespace.
