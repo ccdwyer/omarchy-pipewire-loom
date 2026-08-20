@@ -189,6 +189,7 @@ Item {
       height: 24
       x: -12
       y: node.portY(index, node.inPorts.length)
+      z: 8
       Rectangle {
         anchors.centerIn: parent
         width: 10
@@ -201,6 +202,7 @@ Item {
       }
       MouseArea {
         anchors.fill: parent
+        preventStealing: true
         onPressed: function (ev) {
           var p = mapToItem(node.parent, ev.x, ev.y)
           node.portPressed(modelData, p.x, p.y)
@@ -228,6 +230,7 @@ Item {
       height: 24
       x: node.width - 12
       y: node.portY(index, node.outPorts.length)
+      z: 8
       Rectangle {
         anchors.centerIn: parent
         width: 10
@@ -240,6 +243,7 @@ Item {
       }
       MouseArea {
         anchors.fill: parent
+        preventStealing: true
         onPressed: function (ev) {
           var p = mapToItem(node.parent, ev.x, ev.y)
           node.portPressed(modelData, p.x, p.y)

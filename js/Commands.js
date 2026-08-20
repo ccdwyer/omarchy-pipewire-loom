@@ -35,8 +35,24 @@ function move(streamId, targetKey) {
     }
 }
 
-function linkPorts(fromId, toId) {
-    return { primary: ["pw-link", "-I", String(fromId), String(toId)] }
+function portLinkName(node, port) {
+    if (port && port.alias && String(port.alias).indexOf(":") >= 0)
+        return String(port.alias)
+    var n = node && (node.name || node.nick) ? String(node.name || node.nick) : ""
+    var p = port && port.name ? String(port.name) : ""
+    if (n && p)
+        return n + ":" + p
+    return ""
+}
+
+function linkPorts(fromId, toId, fromName, toName) {
+    // Connect is `pw-link output input` by port name. `-I` is list-ids, not connect-by-id.
+    if (fromName && toName)
+        return {
+            primary: ["pw-link", String(fromName), String(toName)],
+            fallback: ["pw-link", String(fromId), String(toId)]
+        }
+    return { primary: ["pw-link", String(fromId), String(toId)] }
 }
 
 function unlinkPorts(fromId, toId) {
@@ -197,7 +213,7 @@ function argvFor(op, cmd) {
         return move(cmd.stream, key)
     }
     if (op === "link" && cmd.from !== undefined && cmd.to !== undefined)
-        return linkPorts(cmd.from, cmd.to)
+        return linkPorts(cmd.from, cmd.to, cmd.fromName, cmd.toName)
     if (op === "clearTarget")
         return clearTarget(cmd.stream)
     if (op === "unlink" && cmd.link !== undefined)

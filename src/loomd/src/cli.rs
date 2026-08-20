@@ -104,7 +104,7 @@ pub fn handle_command(g: &Graph, cmd: &Command) -> Value {
                 }
                 let a = from.to_string();
                 let b = to.to_string();
-                return match run_cmd(&["pw-link", "-I", &a, &b]) {
+                return match run_cmd(&["pw-link", &a, &b]) {
                     Ok(_) => schema::ok(&cmd.id, "link"),
                     Err(e) => schema::err(&cmd.id, "link", "exec", &e),
                 };
@@ -127,7 +127,7 @@ pub fn handle_command(g: &Graph, cmd: &Command) -> Value {
                         for p in pairs {
                             let a = p.from.to_string();
                             let b = p.to.to_string();
-                            if let Err(e) = run_cmd(&["pw-link", "-I", &a, &b]) {
+                            if let Err(e) = run_cmd(&["pw-link", &a, &b]) {
                                 return schema::err(&cmd.id, "link", "exec", &e);
                             }
                         }
@@ -142,7 +142,7 @@ pub fn handle_command(g: &Graph, cmd: &Command) -> Value {
             if let (Some(from), Some(to)) = (cmd.from, cmd.to) {
                 let a = from.to_string();
                 let b = to.to_string();
-                return match run_cmd(&["pw-link", "-d", "-I", &a, &b]) {
+                return match run_cmd(&["pw-link", "-d", &a, &b]) {
                     Ok(_) => schema::ok(&cmd.id, "unlink"),
                     Err(e) => schema::err(&cmd.id, "unlink", "exec", &e),
                 };

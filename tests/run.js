@@ -626,6 +626,21 @@ test("bar widget loads LoomOverlay.qml, not the host qs.Ui Panel type", () => {
   assert.ok(overlay.indexOf("visible: root.opened") >= 0)
 })
 
+test("link uses port names, not pw-link -I", () => {
+  const argv = Commands.argvFor("link", {
+    from: 74,
+    to: 57,
+    fromName: "Google Chrome:output_FL",
+    toName: "alsa_output.pci-0000_01_00.1.hdmi-stereo:playback_FL"
+  })
+  assert.ok(argv)
+  assert.ok(argv.primary.join(" ").indexOf("pw-link -I") < 0)
+  assert.strictEqual(argv.primary[0], "pw-link")
+  assert.strictEqual(argv.primary[1], "Google Chrome:output_FL")
+  const src = fs.readFileSync(path.join(ROOT, "NodeDelegate.qml"), "utf8")
+  assert.ok(src.indexOf("preventStealing: true") >= 0)
+})
+
 test("unlink uses pw-link -d link-id and clears stream target.object", () => {
   const byId = Commands.argvFor("unlink", { link: 78, from: 74, to: 57 })
   assert.ok(byId)

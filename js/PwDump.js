@@ -353,6 +353,7 @@ function parse(raw) {
             id: num(item.id, 0),
             node: num(p["node.id"] || info["node.id"], 0),
             name: pname,
+            alias: str(p["port.alias"] || p["object.path"] || ""),
             dir: dir,
             channel: parsePortChannel(p, pname),
             monitor: !!mon,

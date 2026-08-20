@@ -376,12 +376,21 @@ Item {
   }
 
   function linkPorts(fromId, toId) {
-    if (!Graph.findPort(store.raw, fromId) || !Graph.findPort(store.raw, toId)) {
+    var fp = Graph.findPort(store.raw, fromId)
+    var tp = Graph.findPort(store.raw, toId)
+    if (!fp || !tp) {
       store.emitToast("gone", "warn")
       store.gone()
       return "gone"
     }
-    store.send(Schema.makeCommand("link", { from: fromId, to: toId }))
+    var fn = Graph.findNode(store.raw, fp.node)
+    var tn = Graph.findNode(store.raw, tp.node)
+    store.send(Schema.makeCommand("link", {
+      from: fromId,
+      to: toId,
+      fromName: Commands.portLinkName(fn, fp),
+      toName: Commands.portLinkName(tn, tp)
+    }))
     return "ok"
   }
 

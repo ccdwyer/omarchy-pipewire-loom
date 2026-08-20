@@ -124,11 +124,11 @@ run_op() {
       ;;
     link)
       need pw-link
-      pw-link -I "${1:?}" "${2:?}"
+      pw-link "${1:?}" "${2:?}"
       ;;
     unlink)
       need pw-link
-      pw-link -d -I "${1:?}" "${2:?}"
+      pw-link -d "${1:?}" "${2:?}"
       ;;
     volume)
       need wpctl

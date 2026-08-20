@@ -115,8 +115,11 @@ Item {
     var hit = root.nodeAt(gx, gy)
     if (hit)
       root.finishLinkToNode(hit)
-    else
+    else {
+      if (root.store)
+        root.store.emitToast("drop on a port or node", "info")
       root.cancelDrag()
+    }
   }
 
   function handleBodyPressed(nodeData) {
@@ -220,7 +223,16 @@ Item {
     }
     var from = a.dir === "out" ? a.id : b.id
     var to = a.dir === "out" ? b.id : a.id
-    root.store.linkPorts(from, to)
+    var fromNode = a.dir === "out" ? a.node : b.node
+    var toNode = a.dir === "out" ? b.node : a.node
+    var src = root.store.nodeById(fromNode)
+    var dst = root.store.nodeById(toNode)
+    var srcPlay = src && String(src.mediaClass || "").indexOf("Stream/Output") === 0
+    var dstSink = dst && (dst.kind === "sink" || String(dst.mediaClass || "").indexOf("Audio/Sink") === 0)
+    if (srcPlay && dstSink)
+      root.store.moveStream(fromNode, toNode)
+    else
+      root.store.linkPorts(from, to)
     root.cancelDrag()
   }
 
