@@ -204,6 +204,36 @@ fn stamp_identities(nodes: &mut [Node]) {
     }
 }
 
+fn parse_frac(s: &str) -> Option<(u32, u32)> {
+    let mut parts = s.split('/');
+    let q = parts.next()?.trim().parse::<u32>().ok()?;
+    let r = parts.next()?.trim().parse::<u32>().ok()?;
+    if q == 0 || r == 0 {
+        None
+    } else {
+        Some((q, r))
+    }
+}
+
+fn route_latency_ms(
+    src: Option<(Option<u32>, Option<u32>)>,
+    dst: Option<(Option<u32>, Option<u32>)>,
+    gq: u32,
+    gr: u32,
+) -> Option<f64> {
+    let (sq, sr) = src.unwrap_or((None, None));
+    let (dq, dr) = dst.unwrap_or((None, None));
+    let q = sq.or(dq)?;
+    let r = sr.or(dr).unwrap_or(gr);
+    if r == 0 {
+        return None;
+    }
+    if q == gq && r == gr {
+        return None;
+    }
+    Some(((q as f64 / r as f64) * 1000.0 * 1000.0).round() / 1000.0)
+}
+
 pub fn parse_pw_dump(raw: &str) -> Graph {
     let data: Value = serde_json::from_str(raw).unwrap_or(Value::Array(vec![]));
     parse_pw_value(&data)
@@ -219,6 +249,8 @@ pub fn parse_pw_value(data: &Value) -> Graph {
         ..Graph::default()
     };
     let mut defaults = Defaults::default();
+    let mut node_clock: std::collections::HashMap<u32, (Option<u32>, Option<u32>)> =
+        std::collections::HashMap::new();
 
     for item in items {
         let t = item.get("type").and_then(|v| v.as_str()).unwrap_or("");
@@ -283,6 +315,19 @@ pub fn parse_pw_value(data: &Value) -> Graph {
         let is_capture = media.starts_with("Stream/Input")
             || media == "Audio/Source"
             || media.starts_with("Audio/Source/");
+        if let Some(q) = prop_u32(&p, "clock.quantum") {
+            node_clock.insert(id, (Some(q), node_clock.get(&id).and_then(|x| x.1)));
+        }
+        if let Some(r) = prop_u32(&p, "clock.rate") {
+            let q = node_clock.get(&id).and_then(|x| x.0);
+            node_clock.insert(id, (q, Some(r)));
+        }
+        if let Some((q, r)) = parse_frac(&prop_str(&p, "node.latency"))
+            .or_else(|| parse_frac(&prop_str(&p, "process.latency")))
+        {
+            let cur = node_clock.get(&id).copied().unwrap_or((None, None));
+            node_clock.insert(id, (cur.0.or(Some(q)), cur.1.or(Some(r))));
+        }
         graph.nodes.push(Node {
             id,
             serial,
@@ -346,7 +391,14 @@ pub fn parse_pw_value(data: &Value) -> Graph {
         };
         let monitor = prop_bool(&p, "port.monitor") || name.to_ascii_lowercase().contains("monitor");
         let id = item.get("id").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
-        let node = prop_u32(&p, "node.id").unwrap_or(0);
+        let node = prop_u32(&p, "node.id")
+            .or_else(|| {
+                item.get("info")
+                    .and_then(|inf| inf.get("props"))
+                    .and_then(|pr| pr.get("node.id"))
+                    .and_then(|v| v.as_u64().map(|n| n as u32))
+            })
+            .unwrap_or(0);
         graph.ports.push(Port {
             id,
             node,
@@ -357,6 +409,9 @@ pub fn parse_pw_value(data: &Value) -> Graph {
             physical: prop_bool(&p, "port.physical"),
         });
     }
+
+    let port_node: std::collections::HashMap<u32, u32> =
+        graph.ports.iter().map(|p| (p.id, p.node)).collect();
 
     for item in items {
         let t = item.get("type").and_then(|v| v.as_str()).unwrap_or("");
@@ -385,6 +440,16 @@ pub fn parse_pw_value(data: &Value) -> Graph {
             .or_else(|| p.get("link.input.node"))
             .and_then(|v| v.as_u64())
             .unwrap_or(0) as u32;
+        let from_node = if from_node == 0 {
+            port_node.get(&from).copied().unwrap_or(0)
+        } else {
+            from_node
+        };
+        let to_node = if to_node == 0 {
+            port_node.get(&to).copied().unwrap_or(0)
+        } else {
+            to_node
+        };
         let src = graph.nodes.iter().find(|n| n.id == from_node);
         let dst = graph.nodes.iter().find(|n| n.id == to_node);
         let mut kind = "route".to_string();
@@ -411,7 +476,12 @@ pub fn parse_pw_value(data: &Value) -> Graph {
             kind,
             live,
             muted,
-            latency_ms: None,
+            latency_ms: route_latency_ms(
+                node_clock.get(&from_node).copied(),
+                node_clock.get(&to_node).copied(),
+                graph.graph.quantum,
+                graph.graph.rate,
+            ),
         });
     }
 
@@ -511,16 +581,12 @@ pub fn stream_ids(graph: &Graph, start: u32) -> Vec<u32> {
             }
         }
     }
-    let mut streams: Vec<u32> = graph
+    graph
         .nodes
         .iter()
         .filter(|n| seen.contains(&n.id) && n.media_class.starts_with("Stream/"))
         .map(|n| n.id)
-        .collect();
-    if streams.is_empty() {
-        streams.push(start);
-    }
-    streams
+        .collect()
 }
 
 pub fn sanitize_sink_name(name: &str) -> String {
@@ -915,5 +981,55 @@ mod tests {
         assert_eq!(g.links[0].live, true);
         let ff = g.nodes.iter().find(|n| n.id == 77).unwrap();
         assert_eq!(ff.identity, "Firefox|Stream/Output/Audio|0");
+        assert_eq!(g.links[0].latency_ms, None);
+    }
+
+    #[test]
+    fn port_only_link_resolves_node_ids() {
+        let dump = r#"
+        [
+          {"id":55,"type":"PipeWire:Interface:Node","info":{
+            "state":"running",
+            "props":{"node.name":"spk","media.class":"Audio/Sink","object.serial":55}
+          }},
+          {"id":77,"type":"PipeWire:Interface:Node","info":{
+            "state":"running",
+            "props":{"node.name":"app","application.name":"App","media.class":"Stream/Output/Audio","object.serial":77,"clock.quantum":256,"clock.rate":48000}
+          }},
+          {"id":80,"type":"PipeWire:Interface:Port","info":{"direction":"output","props":{"node.id":77,"port.name":"output_FL"}}},
+          {"id":90,"type":"PipeWire:Interface:Port","info":{"direction":"input","props":{"node.id":55,"port.name":"playback_FL"}}},
+          {"id":200,"type":"PipeWire:Interface:Link","info":{"output-port-id":80,"input-port-id":90}}
+        ]
+        "#;
+        let g = parse_pw_dump(dump);
+        assert_eq!(g.links.len(), 1);
+        assert_eq!(g.links[0].from_node, 77);
+        assert_eq!(g.links[0].to_node, 55);
+        assert!(g.links[0].latency_ms.is_some());
+        assert!(g.links[0].latency_ms.unwrap() < 10.0);
+    }
+
+    #[test]
+    fn isolated_device_has_no_stream_ids() {
+        let mut g = Graph::default();
+        g.nodes.push(Node {
+            id: 2,
+            serial: 2,
+            name: "speakers".into(),
+            nick: "Speakers".into(),
+            app: "".into(),
+            media_class: "Audio/Sink".into(),
+            kind: "sink".into(),
+            state: "running".into(),
+            mute: false,
+            volume: 1.0,
+            is_default: true,
+            is_capture: false,
+            is_loom: false,
+            channels: vec![],
+            identity: "speakers|Audio/Sink|0".into(),
+            module_id: None,
+        });
+        assert!(stream_ids(&g, 2).is_empty());
     }
 }

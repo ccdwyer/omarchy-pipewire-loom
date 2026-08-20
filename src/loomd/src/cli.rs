@@ -170,7 +170,18 @@ pub fn handle_command(g: &Graph, cmd: &Command) -> Value {
                 Some(n) if node_exists(g, n) => n,
                 _ => return schema::err(&cmd.id, "muteSubgraph", "gone", "node"),
             };
-            let ids = cmd.nodes.clone().unwrap_or_else(|| stream_ids(g, start));
+            let ids = match &cmd.nodes {
+                Some(v) if !v.is_empty() => v.clone(),
+                _ => stream_ids(g, start),
+            };
+            if ids.is_empty() {
+                return serde_json::json!({
+                    "t": "ok",
+                    "id": cmd.id,
+                    "op": "muteSubgraph",
+                    "msg": "no streams in subgraph"
+                });
+            }
             let on = cmd.mute.unwrap_or(true);
             let flag = if on { "1" } else { "0" };
             for id in ids {

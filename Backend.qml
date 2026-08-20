@@ -196,8 +196,13 @@ Item {
       if (!ids && root.store)
         ids = Mute.streamIds(root.store.raw.nodes, root.store.raw.links, cmd.node)
       ids = ids || []
-      if (!ids.length && cmd.node !== undefined)
-        ids = [cmd.node]
+      if (!ids.length) {
+        if (root.store) {
+          root.store.emitToast("no streams in subgraph", "info")
+          root.store.applyEvent(Schema.makeOk(cmd.id, "muteSubgraph"))
+        }
+        return
+      }
       for (var m = 0; m < ids.length; m++)
         root.dispatchArgv(Commands.mute(ids[m], cmd.mute !== false), cmd, m === ids.length - 1)
       return
@@ -239,21 +244,18 @@ Item {
       root.enqueue(Commands.listModules().primary, function (text) {
         var plan = Commands.reconcileLoomModules(Commands.parsePactlShortModules(text), destroy)
         var adopted = plan.adopted || []
-        var removed = []
-        if (destroy) {
-          for (var i = 0; i < adopted.length; i++)
-            root.enqueue(Commands.destroyModule(adopted[i].moduleId).primary, null)
-          removed = adopted
-          adopted = []
+        if (!destroy) {
+          if (root.store) {
+            var ev = Schema.makeOk(cmd.id, "cleanupOrphans")
+            ev.destroy = false
+            ev.adopted = adopted
+            ev.removed = []
+            root.store.applyEvent(ev)
+          }
+          Qt.callLater(function () { root.pollNow() })
+          return
         }
-        if (root.store) {
-          var ev = Schema.makeOk(cmd.id, "cleanupOrphans")
-          ev.destroy = destroy
-          ev.adopted = adopted
-          ev.removed = removed
-          root.store.applyEvent(ev)
-        }
-        Qt.callLater(function () { root.pollNow() })
+        root.unloadLoomModules(cmd, adopted, [], [])
       })
       return
     }
@@ -286,6 +288,37 @@ Item {
       return
     }
     root.dispatchArgv(built, cmd, true)
+  }
+
+  function unloadLoomModules(cmd, remaining, removed, failed) {
+    if (!remaining.length) {
+      if (failed.length) {
+        if (root.store) {
+          var err = Schema.makeErr(cmd.id, "cleanupOrphans", "exec", "unload failed")
+          err.failed = failed
+          err.removed = removed
+          err.retained = failed
+          root.store.applyEvent(err)
+        }
+      } else if (root.store) {
+        var ev = Schema.makeOk(cmd.id, "cleanupOrphans")
+        ev.destroy = true
+        ev.adopted = []
+        ev.removed = removed
+        root.store.applyEvent(ev)
+      }
+      Qt.callLater(function () { root.pollNow() })
+      return
+    }
+    var next = remaining[0]
+    var rest = remaining.slice(1)
+    root.enqueue(Commands.destroyModule(next.moduleId).primary, function (text, code) {
+      if (code === 0)
+        removed.push(next)
+      else
+        failed.push(next)
+      root.unloadLoomModules(cmd, rest, removed, failed)
+    })
   }
 
   function dispatchArgv(built, cmd, ack) {

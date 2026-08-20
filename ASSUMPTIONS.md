@@ -9,7 +9,7 @@ Conservative choices where the Omarchy / Quickshell / PipeWire API was not 100% 
 - **`keepLoaded: true`** is set even though the only kind is bar-widget. The nested `PanelWindow` and the backend `Process` should survive close. Bar widgets on the bar are already kept loaded; this is belt-and-suspenders if the host honours the flag for nested windows.
 - **Injected properties** on load: `omarchyPath`, `shell`, `manifest`, `pluginRegistry`, `bar`. Same as first-party clipboard / clock. The widget still runs if some are missing.
 - **`IpcHandler` target** is the plugin id. Extra surface; `shell call` is the primary path. Typed return `string` matches desktop-undo.
-- **Theme tokens** `Color.menu.*`, `Color.accent`, `Style.*`, `Border.surfaceSpec`, `BarWidget`, `WidgetButton`, `BorderSurface`, `PanelWindow`, `WlrLayershell` — copied from first-party clipboard / undo. Bindings read `Color.menu.background` (etc.) only after a `Color && Color.menu` guard so a missing token cannot fail the load, while a present token still tracks for the 200 ms lerp. Capture badge uses a fixed red (`Qt.rgba(0.86, 0.22, 0.22, 1)`) because no first-party danger token was confirmed. Reduced motion: `Style.reduceMotion` if present, else `OMARCHY_REDUCED_MOTION=1`.
+- **Theme tokens** `Color.menu.*`, `Color.accent`, `Style.*`, `Border.surfaceSpec`, `BarWidget`, `WidgetButton`, `BorderSurface`, `PanelWindow`, `WlrLayershell` — copied from first-party clipboard / undo. No hexadecimal color literals. Missing tokens fall back to `Qt.rgba(...)` mixes of accent/text so a partial palette cannot fail the load. Reduced motion: `Style.reduceMotion` if present, else `OMARCHY_REDUCED_MOTION=1`.
 - **Animations:** 150 ms add/remove, 200 ms color lerp on theme change, as specified.
 
 ## Quickshell
@@ -24,7 +24,7 @@ Conservative choices where the Omarchy / Quickshell / PipeWire API was not 100% 
 ## PipeWire / WirePlumber
 
 - **Move verb:** `wpctl set-target <stream> <sink>` first, then `pw-metadata <stream> target.object <sink>`. Spec says target metadata the way wpctl does. `wpctl set-target` exists on WirePlumber 0.5+; the metadata fallback covers 0.4. Never `pw-link` for move. Stickiness (restart the track) cannot be asserted on this macOS machine.
-- **Mute:** `wpctl set-mute <id> 1|0` per stream in the BFS subgraph. Not SPA_PROP_mute param writes.
+- **Mute:** `wpctl set-mute <id> 1|0` per **stream** in the BFS subgraph. If the walk finds no `Stream/*` nodes, both backends no-op and toast “no streams in subgraph”. Hardware sinks/sources are never muted by `m`.
 - **Volume:** `wpctl set-volume <id> <0..1>`. Channel volumes in pw-dump are cubed; we cube-root for display. Reverse is wpctl's problem.
 - **Explicit links:** `pw-link -I <out> <in>` and `pw-link -d -I …`. Port ids, not names.
 - **Virtual sinks:** `pactl load-module module-null-sink sink_name=Loom-<name>`. Teardown only via the returned module id. Feature gated in spec on a day-3 stock-Omarchy proof — **that proof was not run here**, so `virtualSinks` defaults to **false** in the manifest, BarWidget, and GraphStore; `n` is a no-op toast until the user sets `virtualSinks: true`. `spawnSink` ok events carry `name` + `moduleId`; GraphStore persists them with `rememberModule`. Startup sends `cleanupOrphans` with `destroy: false` to adopt live `Loom-*` modules in both the QML CLI backend and `loomd`. User cleanup uses `destroy: true` and still refuses anything whose name does not start with `Loom-`.

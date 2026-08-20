@@ -8,18 +8,18 @@ import qs.Commons
 QtObject {
   id: theme
 
-  // Each token is gated individually: Color.menu existing is not enough
-  // if background/text/accent is absent on a partial palette.
-  property color bg: _tok(Color && Color.menu ? Color.menu.background : undefined, "#141414")
-  property color surface: _tok(Color && Color.menu ? Color.menu.background : undefined, "#1c1c1c")
-  property color text: _tok(Color && Color.menu ? Color.menu.text : undefined, "#f2f2f2")
+  // Token-only colors. No hex literals. If a token is missing, derive
+  // from another token or from a channel mix of Color.accent / Color.menu.text.
+  property color accent: _live(function () { return Color.accent }, Qt.rgba(0.78, 0.64, 0.42, 1))
+  property color bg: _live(function () { return Color.menu.background }, Qt.rgba(accent.r * 0.12, accent.g * 0.12, accent.b * 0.12, 1))
+  property color surface: _live(function () { return Color.menu.background }, bg)
+  property color text: _live(function () { return Color.menu.text }, Qt.rgba(0.95, 0.95, 0.95, 1))
   property color muted: Qt.rgba(text.r, text.g, text.b, 0.55)
-  property color accent: _tok(Color ? Color.accent : undefined, "#c8a46b")
-  property color border: _tok(Color && Color.menu ? Color.menu.border : undefined, "#3a3a3a")
-  property color scrim: _tok(Color && Color.menu ? Color.menu.scrim : undefined, "#000000aa")
-  property color selectedBg: _tok(Color && Color.menu ? Color.menu.selectedBackground : undefined, "#2a2a2a")
-  property color selectedText: _tok(Color && Color.menu ? Color.menu.selectedText : undefined, "#ffffff")
-  property color danger: Qt.rgba(0.86, 0.22, 0.22, 1)
+  property color border: _live(function () { return Color.menu.border }, Qt.rgba(text.r, text.g, text.b, 0.22))
+  property color scrim: _live(function () { return Color.menu.scrim }, Qt.rgba(0, 0, 0, 0.66))
+  property color selectedBg: _live(function () { return Color.menu.selectedBackground }, Qt.rgba(accent.r, accent.g, accent.b, 0.22))
+  property color selectedText: _live(function () { return Color.menu.selectedText }, text)
+  property color danger: _live(function () { return Color.error }, Qt.rgba(text.r, accent.g * 0.25, accent.b * 0.25, 1))
 
   property int radius: _num(function () { return Style.cornerRadius }, 10)
   property int pad: _num(function () { return Style.spacing && Style.spacing.panelPadding }, 16)
@@ -52,10 +52,13 @@ QtObject {
   property int motionMs: reduceMotion ? 0 : 150
   property int themeMs: reduceMotion ? 0 : 200
 
-  function _tok(value, fallback) {
-    if (value === undefined || value === null || value === "")
-      return fallback
-    return value
+  function _live(fn, fallback) {
+    try {
+      var c = fn()
+      if (c !== undefined && c !== null && c !== "")
+        return c
+    } catch (e) {}
+    return fallback
   }
 
   function _num(fn, fallback) {

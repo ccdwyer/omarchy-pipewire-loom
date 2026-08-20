@@ -31,6 +31,72 @@ function num(v, fallback) {
     return isFinite(n) ? n : (fallback || 0)
 }
 
+function parseFraction(s) {
+    var t = String(s || "")
+    var m = t.match(/^(\d+)\s*\/\s*(\d+)/)
+    if (!m)
+        return null
+    var q = Number(m[1])
+    var r = Number(m[2])
+    if (!q || !r)
+        return null
+    return { quantum: q, rate: r }
+}
+
+function parseNodeLatency(props, info) {
+    var out = { quantum: 0, rate: 0 }
+    if (props["clock.quantum"])
+        out.quantum = num(props["clock.quantum"], 0)
+    if (props["clock.rate"])
+        out.rate = num(props["clock.rate"], 0)
+    var frac = parseFraction(props["node.latency"] || props["process.latency"] || "")
+    if (frac) {
+        if (!out.quantum)
+            out.quantum = frac.quantum
+        if (!out.rate)
+            out.rate = frac.rate
+    }
+    var params = info && info.params ? info.params : null
+    if (params && params.Props) {
+        var list = Array.isArray(params.Props) ? params.Props : [params.Props]
+        for (var i = 0; i < list.length; i++) {
+            var pr = list[i]
+            if (!pr)
+                continue
+            var f2 = parseFraction(pr.latency || pr["node.latency"] || "")
+            if (f2) {
+                if (!out.quantum)
+                    out.quantum = f2.quantum
+                if (!out.rate)
+                    out.rate = f2.rate
+            }
+        }
+    }
+    return out
+}
+
+function routeLatencyMs(src, dst, graph) {
+    var gq = (graph && graph.quantum) || 1024
+    var gr = (graph && graph.rate) || 48000
+    var q = 0
+    var r = 0
+    if (src && src.quantum)
+        q = src.quantum
+    else if (dst && dst.quantum)
+        q = dst.quantum
+    if (src && src.rate)
+        r = src.rate
+    else if (dst && dst.rate)
+        r = dst.rate
+    if (!r)
+        r = gr
+    if (!q)
+        return null
+    if (q === gq && r === gr)
+        return null
+    return Math.round((q / r) * 1000 * 1000) / 1000
+}
+
 function classify(mediaClass) {
     var c = str(mediaClass)
     if (!c)
@@ -247,13 +313,16 @@ function parse(raw) {
             isLoom: isLoomName(name, nick),
             channels: vol.channels.slice(),
             identity: "",
-            moduleId: p["pulse.module"] !== undefined ? num(p["pulse.module"], 0) : undefined
+            moduleId: p["pulse.module"] !== undefined ? num(p["pulse.module"], 0) : undefined,
+            quantum: p["clock.quantum"] ? num(p["clock.quantum"], 0) : undefined,
+            rate: p["clock.rate"] ? num(p["clock.rate"], 0) : undefined
         }
+        var lat = parseNodeLatency(p, info)
+        if (lat.quantum)
+            node.quantum = lat.quantum
+        if (lat.rate)
+            node.rate = lat.rate
         nodes.push(node)
-        if (p["clock.quantum"])
-            graph.quantum = num(p["clock.quantum"], graph.quantum)
-        if (p["clock.rate"])
-            graph.rate = num(p["clock.rate"], graph.rate)
     }
 
     for (i = 0; i < nodes.length; i++) {
@@ -344,11 +413,7 @@ function parse(raw) {
         }
         var live = !!(srcNode && srcNode.state === "running")
         var muted = !!(srcNode && srcNode.mute) || !!(dstNode && dstNode.mute)
-        var latencyMs = null
-        var q = graph.quantum
-        var rate = graph.rate || 48000
-        if (srcNode && srcNode.quantum && srcNode.quantum !== q)
-            latencyMs = (srcNode.quantum / rate) * 1000
+        var latencyMs = routeLatencyMs(srcNode, dstNode, graph)
         links.push({
             id: num(item.id, 0),
             from: fromPort,

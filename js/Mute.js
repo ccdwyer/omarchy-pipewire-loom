@@ -59,9 +59,5 @@ function streamIds(nodes, links, startId) {
         if (isStream(node))
             streams.push(ids[j])
     }
-    // If the selection itself is a device with no stream neighbours, mute it
-    // anyway so `m` on a sink still does something honest.
-    if (streams.length === 0 && byId[startId])
-        streams.push(startId)
     return streams
 }

@@ -284,6 +284,33 @@ test("mute: BFS walks links and returns stream ids only", () => {
   assert.ok(ids.indexOf(55) < 0)
 })
 
+test("mute: isolated hardware node is empty — no device mute fallback", () => {
+  const ids = Mute.streamIds(
+    [{ id: 55, mediaClass: "Audio/Sink", kind: "sink" }],
+    [],
+    55
+  )
+  assert.strictEqual(ids.length, 0)
+})
+
+test("pwdump: custom node quantum emits per-route latencyMs", () => {
+  const data = jsonFix("pwdump-simple.json")
+  const node = data.filter((x) => x.id === 77 && x.type.indexOf("Node") >= 0)[0]
+  node.info.props["clock.quantum"] = 256
+  const g = PwDump.parse(JSON.stringify(data))
+  const ff = g.nodes.find((n) => n.id === 77)
+  assert.strictEqual(ff.quantum, 256)
+  const lat = g.links.filter((l) => l.fromNode === 77)
+  assert.ok(lat.length)
+  assert.ok(lat.every((l) => l.latencyMs !== null && l.latencyMs !== undefined))
+  assert.ok(lat[0].latencyMs < 10)
+})
+
+test("pwdump: graph-default quantum leaves latencyMs null", () => {
+  const g = PwDump.parse(fixture("pwdump-simple.json"))
+  assert.ok(g.links.every((l) => l.latencyMs === null || l.latencyMs === undefined))
+})
+
 test("storm: >10 events in 100ms flips", () => {
   let t = Storm.create()
   const now = 1000

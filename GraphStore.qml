@@ -120,6 +120,16 @@ Item {
       return
     }
     if (ev.t === "err") {
+      if (ev.op === "cleanupOrphans") {
+        var keep = ev.retained || ev.failed || []
+        var nextMods = {}
+        for (var f = 0; f < keep.length; f++) {
+          if (keep[f].name && keep[f].moduleId !== undefined)
+            nextMods[keep[f].name] = keep[f].moduleId
+        }
+        store.loomModules = nextMods
+        store.saveState()
+      }
       if (ev.err === "gone") {
         store.gone()
         store.emitToast("gone", "warn")
@@ -400,6 +410,10 @@ Item {
     if (store.lastMutedRoot === id && store.lastMutedOn)
       turnOn = false
     var ids = Mute.streamIds(store.raw.nodes, store.raw.links, id)
+    if (!ids.length) {
+      store.emitToast("no streams in subgraph", "info")
+      return "ok"
+    }
     store.lastMuted = ids
     store.lastMutedOn = turnOn
     store.lastMutedRoot = id
