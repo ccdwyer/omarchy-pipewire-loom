@@ -1,0 +1,123 @@
+[
+  {
+    "id": 0,
+    "type": "PipeWire:Interface:Core",
+    "info": {
+      "props": {
+        "clock.rate": 48000,
+        "clock.quantum": 1024
+      }
+    }
+  },
+  {
+    "id": 0,
+    "type": "PipeWire:Interface:Metadata",
+    "props": { "metadata.name": "default" },
+    "metadata": [
+      { "key": "default.audio.sink", "value": "{\"name\":\"alsa_output.pci-0000_00_1f.3.analog-stereo\"}" },
+      { "key": "default.audio.source", "value": "{\"name\":\"alsa_input.pci-0000_00_1f.3.analog-stereo\"}" }
+    ]
+  },
+  {
+    "id": 55,
+    "type": "PipeWire:Interface:Node",
+    "info": {
+      "state": "running",
+      "props": {
+        "node.name": "alsa_output.pci-0000_00_1f.3.analog-stereo",
+        "node.nick": "Built-in Audio Analog Stereo",
+        "node.description": "Built-in Audio Analog Stereo",
+        "media.class": "Audio/Sink",
+        "object.serial": 55
+      },
+      "params": {
+        "Props": [{ "mute": false, "volume": 0.64, "channelVolumes": [0.262144, 0.262144], "channelMap": ["FL", "FR"] }]
+      }
+    }
+  },
+  {
+    "id": 12,
+    "type": "PipeWire:Interface:Node",
+    "info": {
+      "state": "idle",
+      "props": {
+        "node.name": "alsa_input.pci-0000_00_1f.3.analog-stereo",
+        "node.nick": "Built-in Audio Analog Stereo",
+        "media.class": "Audio/Source",
+        "object.serial": 12
+      }
+    }
+  },
+  {
+    "id": 77,
+    "type": "PipeWire:Interface:Node",
+    "info": {
+      "state": "running",
+      "props": {
+        "node.name": "Firefox",
+        "application.name": "Firefox",
+        "media.class": "Stream/Output/Audio",
+        "media.role": "Music",
+        "object.serial": 77
+      },
+      "params": {
+        "Props": [{ "mute": false, "channelVolumes": [0.5, 0.5], "channelMap": ["FL", "FR"] }]
+      }
+    }
+  },
+  {
+    "id": 80,
+    "type": "PipeWire:Interface:Port",
+    "info": { "direction": "output", "props": { "node.id": 77, "port.name": "output_FL", "audio.channel": "FL" } }
+  },
+  {
+    "id": 81,
+    "type": "PipeWire:Interface:Port",
+    "info": { "direction": "output", "props": { "node.id": 77, "port.name": "output_FR", "audio.channel": "FR" } }
+  },
+  {
+    "id": 90,
+    "type": "PipeWire:Interface:Port",
+    "info": { "direction": "input", "props": { "node.id": 55, "port.name": "playback_FL", "audio.channel": "FL" } }
+  },
+  {
+    "id": 91,
+    "type": "PipeWire:Interface:Port",
+    "info": { "direction": "input", "props": { "node.id": 55, "port.name": "playback_FR", "audio.channel": "FR" } }
+  },
+  {
+    "id": 92,
+    "type": "PipeWire:Interface:Port",
+    "info": { "direction": "output", "props": { "node.id": 55, "port.name": "monitor_FL", "audio.channel": "FL", "port.monitor": true } }
+  },
+  {
+    "id": 70,
+    "type": "PipeWire:Interface:Port",
+    "info": { "direction": "output", "props": { "node.id": 12, "port.name": "capture_FL", "audio.channel": "FL" } }
+  },
+  {
+    "id": 71,
+    "type": "PipeWire:Interface:Port",
+    "info": { "direction": "output", "props": { "node.id": 12, "port.name": "capture_FR", "audio.channel": "FR" } }
+  },
+  {
+    "id": 200,
+    "type": "PipeWire:Interface:Link",
+    "info": {
+      "output-port-id": 80,
+      "input-port-id": 90,
+      "output-node-id": 77,
+      "input-node-id": 55
+    }
+  },
+  {
+    "id": 201,
+    "type": "PipeWire:Interface:Link",
+    "info": {
+      "output-port-id": 81,
+      "input-port-id": 91,
+      "output-node-id": 77,
+      "input-node-id": 55
+    }
+  }
+]

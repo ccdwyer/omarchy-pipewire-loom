@@ -1,0 +1,18 @@
+{
+  "from": [
+    { "id": 1, "node": 10, "dir": "out", "channel": "FL", "monitor": false },
+    { "id": 2, "node": 10, "dir": "out", "channel": "FR", "monitor": false },
+    { "id": 3, "node": 10, "dir": "out", "channel": "FC", "monitor": false },
+    { "id": 4, "node": 10, "dir": "out", "channel": "LFE", "monitor": false },
+    { "id": 5, "node": 10, "dir": "out", "channel": "RL", "monitor": false },
+    { "id": 6, "node": 10, "dir": "out", "channel": "RR", "monitor": false }
+  ],
+  "to": [
+    { "id": 11, "node": 20, "dir": "in", "channel": "FL", "monitor": false },
+    { "id": 12, "node": 20, "dir": "in", "channel": "FR", "monitor": false },
+    { "id": 13, "node": 20, "dir": "in", "channel": "FC", "monitor": false },
+    { "id": 14, "node": 20, "dir": "in", "channel": "LFE", "monitor": false },
+    { "id": 15, "node": 20, "dir": "in", "channel": "RL", "monitor": false },
+    { "id": 16, "node": 20, "dir": "in", "channel": "RR", "monitor": false }
+  ]
+}

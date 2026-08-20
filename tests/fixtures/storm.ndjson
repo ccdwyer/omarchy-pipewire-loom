@@ -1,0 +1,4 @@
+{"t":"hello","backend":"cli","version":1,"compat":true}
+{"t":"snapshot","gen":1,"nodes":[],"ports":[],"links":[],"defaults":{},"graph":{"quantum":1024,"rate":48000,"latencyMs":21.333}}
+{"t":"storm","gen":2,"n":18,"windowMs":100}
+{"t":"snapshot","gen":2,"nodes":[{"id":1,"serial":1,"name":"a","nick":"a","app":"a","mediaClass":"Stream/Output/Audio","kind":"source","state":"running","mute":false,"volume":1,"isDefault":false,"isCapture":false,"isLoom":false,"channels":["FL"],"identity":"a|Stream/Output/Audio|0"},{"id":2,"serial":2,"name":"b","nick":"b","app":"","mediaClass":"Audio/Sink","kind":"sink","state":"running","mute":false,"volume":1,"isDefault":true,"isCapture":false,"isLoom":false,"channels":["FL"],"identity":"b|Audio/Sink|0"}],"ports":[],"links":[],"defaults":{"sink":2},"graph":{"quantum":1024,"rate":48000,"latencyMs":21.333}}

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.chris.pipewire-loom",
+  "name": "PipeWire Loom",
+  "version": "1.0.0",
+  "author": "chris",
+  "license": "MIT",
+  "description": "A theme-native PipeWire graph: drag apps to devices, spawn sinks, mute subgraphs, watch live routes light up.",
+  "kinds": ["bar-widget"],
+  "keepLoaded": true,
+  "entryPoints": { "barWidget": "BarWidget.qml" },
+  "barWidget": {
+    "displayName": "PipeWire Loom",
+    "category": "Audio",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "simpleView": true,
+      "pollMs": 1000,
+      "virtualSinks": true
+    },
+    "schema": [
+      { "key": "simpleView", "type": "boolean", "label": "Simple view (streams + devices)" },
+      { "key": "pollMs", "type": "number", "label": "CLI poll interval (ms)" },
+      { "key": "virtualSinks", "type": "boolean", "label": "Allow Loom-* virtual sinks" }
+    ]
+  }
+}

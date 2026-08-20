@@ -1,0 +1,54 @@
+[
+  {
+    "id": 66,
+    "type": "PipeWire:Interface:Node",
+    "info": {
+      "state": "running",
+      "props": {
+        "node.name": "bluez_output.AA_BB_CC_DD_EE_FF.1",
+        "node.nick": "WH-1000XM5",
+        "media.class": "Audio/Sink",
+        "object.serial": 66,
+        "api.bluez5.codec": "sbc"
+      }
+    }
+  },
+  {
+    "id": 88,
+    "type": "PipeWire:Interface:Node",
+    "info": {
+      "state": "running",
+      "props": {
+        "node.name": "spotify",
+        "application.name": "spotify",
+        "media.class": "Stream/Output/Audio",
+        "object.serial": 88
+      }
+    }
+  },
+  {
+    "id": 160,
+    "type": "PipeWire:Interface:Port",
+    "info": { "direction": "input", "props": { "node.id": 66, "port.name": "playback_FL", "audio.channel": "FL" } }
+  },
+  {
+    "id": 161,
+    "type": "PipeWire:Interface:Port",
+    "info": { "direction": "input", "props": { "node.id": 66, "port.name": "playback_FR", "audio.channel": "FR" } }
+  },
+  {
+    "id": 180,
+    "type": "PipeWire:Interface:Port",
+    "info": { "direction": "output", "props": { "node.id": 88, "port.name": "output_FL", "audio.channel": "FL" } }
+  },
+  {
+    "id": 181,
+    "type": "PipeWire:Interface:Port",
+    "info": { "direction": "output", "props": { "node.id": 88, "port.name": "output_FR", "audio.channel": "FR" } }
+  },
+  {
+    "id": 300,
+    "type": "PipeWire:Interface:Link",
+    "info": { "output-port-id": 180, "input-port-id": 160, "output-node-id": 88, "input-node-id": 66 }
+  }
+]

@@ -1,0 +1,80 @@
+[
+  {
+    "id": 0,
+    "type": "PipeWire:Interface:Core",
+    "info": { "props": { "clock.rate": 48000, "clock.quantum": 1024 } }
+  },
+  {
+    "id": 55,
+    "type": "PipeWire:Interface:Node",
+    "info": {
+      "state": "running",
+      "props": { "node.name": "alsa_output.pci", "node.nick": "Speakers", "media.class": "Audio/Sink", "object.serial": 55 }
+    }
+  },
+  {
+    "id": 40,
+    "type": "PipeWire:Interface:Node",
+    "info": {
+      "state": "idle",
+      "props": { "node.name": "Midi-Bridge", "media.class": "Midi/Bridge", "object.serial": 40 }
+    }
+  },
+  {
+    "id": 41,
+    "type": "PipeWire:Interface:Node",
+    "info": {
+      "state": "idle",
+      "props": { "node.name": "Duplex-Loop", "media.class": "Audio/Duplex", "object.serial": 41 }
+    }
+  },
+  {
+    "id": 101,
+    "type": "PipeWire:Interface:Node",
+    "info": {
+      "state": "running",
+      "props": { "node.name": "chrome.playback.1", "application.name": "Google Chrome", "media.class": "Stream/Output/Audio", "object.serial": 101 }
+    }
+  },
+  {
+    "id": 102,
+    "type": "PipeWire:Interface:Node",
+    "info": {
+      "state": "idle",
+      "props": { "node.name": "chrome.playback.2", "application.name": "Google Chrome", "media.class": "Stream/Output/Audio", "object.serial": 102 }
+    }
+  },
+  {
+    "id": 103,
+    "type": "PipeWire:Interface:Node",
+    "info": {
+      "state": "running",
+      "props": { "node.name": "chrome.capture.1", "application.name": "Google Chrome", "media.class": "Stream/Input/Audio", "object.serial": 103 }
+    }
+  },
+  {
+    "id": 201,
+    "type": "PipeWire:Interface:Port",
+    "info": { "direction": "output", "props": { "node.id": 101, "port.name": "output_FL", "audio.channel": "FL" } }
+  },
+  {
+    "id": 202,
+    "type": "PipeWire:Interface:Port",
+    "info": { "direction": "output", "props": { "node.id": 101, "port.name": "output_FR", "audio.channel": "FR" } }
+  },
+  {
+    "id": 203,
+    "type": "PipeWire:Interface:Port",
+    "info": { "direction": "input", "props": { "node.id": 55, "port.name": "playback_FL", "audio.channel": "FL" } }
+  },
+  {
+    "id": 204,
+    "type": "PipeWire:Interface:Port",
+    "info": { "direction": "output", "props": { "node.id": 55, "port.name": "monitor_FL", "audio.channel": "FL", "port.monitor": true } }
+  },
+  {
+    "id": 400,
+    "type": "PipeWire:Interface:Link",
+    "info": { "output-port-id": 201, "input-port-id": 203, "output-node-id": 101, "input-node-id": 55 }
+  }
+]

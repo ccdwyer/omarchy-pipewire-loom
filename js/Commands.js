@@ -1,0 +1,156 @@
+.pragma library
+
+// Build argv for the CLI backend. Mutations go through stock PipeWire tools.
+// Move uses WirePlumber target metadata, never a raw pw-link.
+
+function sanitizeSinkName(name) {
+    var s = String(name || "Mix")
+    var out = ""
+    for (var i = 0; i < s.length && out.length < 32; i++) {
+        var ch = s.charAt(i)
+        if (/[A-Za-z0-9_-]/.test(ch))
+            out += ch
+    }
+    if (!out)
+        out = "Mix"
+    if (out.indexOf("Loom-") === 0)
+        return out
+    return "Loom-" + out
+}
+
+function move(streamId, targetId) {
+    return {
+        primary: ["wpctl", "set-target", String(streamId), String(targetId)],
+        fallback: ["pw-metadata", String(streamId), "target.object", String(targetId)]
+    }
+}
+
+function linkPorts(fromId, toId) {
+    return { primary: ["pw-link", "-I", String(fromId), String(toId)] }
+}
+
+function unlinkPorts(fromId, toId) {
+    return { primary: ["pw-link", "-d", "-I", String(fromId), String(toId)] }
+}
+
+function unlinkId(linkId) {
+    // pw-link cannot destroy by link id on every build; caller should pass ports.
+    return { primary: ["pw-cli", "destroy", String(linkId)] }
+}
+
+function volume(nodeId, vol) {
+    var v = Number(vol)
+    if (!isFinite(v))
+        v = 1
+    if (v < 0)
+        v = 0
+    if (v > 1)
+        v = 1
+    return { primary: ["wpctl", "set-volume", String(nodeId), String(v)] }
+}
+
+function mute(nodeId, on) {
+    return { primary: ["wpctl", "set-mute", String(nodeId), on ? "1" : "0"] }
+}
+
+function spawnSink(name) {
+    var sinkName = sanitizeSinkName(name)
+    return {
+        sinkName: sinkName,
+        primary: [
+            "pactl",
+            "load-module",
+            "module-null-sink",
+            "sink_name=" + sinkName,
+            "sink_properties=device.description=" + sinkName
+        ]
+    }
+}
+
+function destroyModule(moduleId) {
+    return { primary: ["pactl", "unload-module", String(moduleId)] }
+}
+
+function listSinks() {
+    return { primary: ["pactl", "list", "short", "sinks"] }
+}
+
+function listModules() {
+    return { primary: ["pactl", "list", "short", "modules"] }
+}
+
+function dump() {
+    return { primary: ["pw-dump"] }
+}
+
+function parsePactlShortSinks(text) {
+    var lines = String(text || "").split("\n")
+    var out = []
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim()
+        if (!line)
+            continue
+        var cols = line.split(/\s+/)
+        if (cols.length < 2)
+            continue
+        out.push({ index: cols[0], name: cols[1] })
+    }
+    return out
+}
+
+function parsePactlShortModules(text) {
+    var lines = String(text || "").split("\n")
+    var out = []
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim()
+        if (!line)
+            continue
+        var cols = line.split(/\s+/)
+        if (cols.length < 2)
+            continue
+        out.push({ id: cols[0], name: cols[1], argument: cols.slice(2).join(" ") })
+    }
+    return out
+}
+
+function loomSinks(sinks) {
+    var out = []
+    for (var i = 0; i < (sinks || []).length; i++) {
+        if (String(sinks[i].name || "").indexOf("Loom-") === 0)
+            out.push(sinks[i])
+    }
+    return out
+}
+
+function loomModules(modules) {
+    var out = []
+    for (var i = 0; i < (modules || []).length; i++) {
+        var m = modules[i]
+        var blob = String(m.argument || "") + " " + String(m.name || "")
+        if (blob.indexOf("Loom-") >= 0 && String(m.name || "").indexOf("module-null-sink") >= 0)
+            out.push(m)
+    }
+    return out
+}
+
+function argvFor(op, cmd) {
+    if (op === "move")
+        return move(cmd.stream, cmd.target)
+    if (op === "link" && cmd.from !== undefined && cmd.to !== undefined)
+        return linkPorts(cmd.from, cmd.to)
+    if (op === "unlink" && cmd.from !== undefined && cmd.to !== undefined)
+        return unlinkPorts(cmd.from, cmd.to)
+    if (op === "unlink" && cmd.link !== undefined)
+        return unlinkId(cmd.link)
+    if (op === "volume")
+        return volume(cmd.node, cmd.vol)
+    if (op === "mute" || op === "muteSubgraph")
+        return mute(cmd.node, cmd.mute !== false)
+    if (op === "spawnSink")
+        return spawnSink(cmd.name)
+    if (op === "destroySink" && cmd.moduleId !== undefined)
+        return destroyModule(cmd.moduleId)
+    if (op === "dump")
+        return dump()
+    return null
+}

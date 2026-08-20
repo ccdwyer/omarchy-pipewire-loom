@@ -1,0 +1,10 @@
+{
+  "from": [
+    { "id": 1, "node": 10, "dir": "out", "channel": "FL", "monitor": false },
+    { "id": 2, "node": 10, "dir": "out", "channel": "FR", "monitor": false }
+  ],
+  "to": [
+    { "id": 3, "node": 20, "dir": "in", "channel": "FL", "monitor": false },
+    { "id": 4, "node": 20, "dir": "in", "channel": "FR", "monitor": false }
+  ]
+}

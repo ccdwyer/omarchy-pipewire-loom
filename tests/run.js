@@ -1,0 +1,377 @@
+#!/usr/bin/env node
+"use strict"
+
+const fs = require("fs")
+const path = require("path")
+const vm = require("vm")
+const assert = require("assert")
+
+const ROOT = path.resolve(__dirname, "..")
+const JS = path.join(ROOT, "js")
+const FIX = path.join(__dirname, "fixtures")
+
+function loadEngine(file) {
+  const src = fs
+    .readFileSync(path.join(JS, file), "utf8")
+    .replace(/^\.pragma library\s*\n/, "")
+  const sandbox = {
+    console,
+    Date,
+    Math,
+    JSON,
+    String,
+    Number,
+    Array,
+    Object,
+    parseInt,
+    isFinite,
+    isNaN,
+    exports: {},
+    module: { exports: {} }
+  }
+  vm.createContext(sandbox)
+  vm.runInContext(src, sandbox, { filename: file })
+  const exported = {}
+  for (const key of Object.keys(sandbox)) {
+    if (
+      [
+        "console",
+        "Date",
+        "Math",
+        "JSON",
+        "String",
+        "Number",
+        "Array",
+        "Object",
+        "parseInt",
+        "isFinite",
+        "isNaN",
+        "exports",
+        "module"
+      ].indexOf(key) >= 0
+    )
+      continue
+    exported[key] = sandbox[key]
+  }
+  return exported
+}
+
+const Schema = loadEngine("Schema.js")
+const PwDump = loadEngine("PwDump.js")
+const Graph = loadEngine("Graph.js")
+const ChannelMap = loadEngine("ChannelMap.js")
+const Mute = loadEngine("Mute.js")
+const Storm = loadEngine("Storm.js")
+const Layout = loadEngine("Layout.js")
+const SimpleView = loadEngine("SimpleView.js")
+const Commands = loadEngine("Commands.js")
+const Positions = loadEngine("Positions.js")
+
+let passed = 0
+let failed = 0
+
+function test(name, fn) {
+  try {
+    fn()
+    passed += 1
+    process.stdout.write("ok  " + name + "\n")
+  } catch (err) {
+    failed += 1
+    process.stderr.write("FAIL " + name + "\n" + (err && err.stack ? err.stack : err) + "\n")
+  }
+}
+
+function fixture(name) {
+  return fs.readFileSync(path.join(FIX, name), "utf8")
+}
+
+function jsonFix(name) {
+  return JSON.parse(fixture(name))
+}
+
+function make60() {
+  const items = [
+    {
+      id: 0,
+      type: "PipeWire:Interface:Core",
+      info: { props: { "clock.rate": 48000, "clock.quantum": 1024 } }
+    },
+    {
+      id: 55,
+      type: "PipeWire:Interface:Node",
+      info: {
+        state: "running",
+        props: {
+          "node.name": "speakers",
+          "node.nick": "Speakers",
+          "media.class": "Audio/Sink",
+          "object.serial": 55
+        }
+      }
+    }
+  ]
+  for (let i = 0; i < 58; i++) {
+    const id = 200 + i
+    items.push({
+      id,
+      type: "PipeWire:Interface:Node",
+      info: {
+        state: i % 3 === 0 ? "running" : "idle",
+        props: {
+          "node.name": "chrome." + i,
+          "application.name": "Google Chrome",
+          "media.class": "Stream/Output/Audio",
+          "object.serial": id
+        }
+      }
+    })
+    items.push({
+      id: 1000 + i,
+      type: "PipeWire:Interface:Port",
+      info: {
+        direction: "output",
+        props: { "node.id": id, "port.name": "output_FL", "audio.channel": "FL" }
+      }
+    })
+  }
+  return items
+}
+
+test("schema: parseLine ignores blanks and flags bad json", () => {
+  assert.strictEqual(Schema.parseLine("  "), null)
+  const bad = Schema.parseLine("{")
+  assert.strictEqual(bad.t, "err")
+  assert.strictEqual(bad.err, "parse")
+})
+
+test("schema: golden snapshot-simple.ndjson", () => {
+  const evs = Schema.parseStream(fixture("snapshot-simple.ndjson"))
+  assert.strictEqual(evs[0].t, "hello")
+  assert.strictEqual(evs[0].backend, "cli")
+  assert.strictEqual(evs[1].t, "snapshot")
+  assert.strictEqual(evs[1].gen, 1)
+  assert.strictEqual(evs[1].nodes.length, 2)
+  assert.strictEqual(evs[1].links[0].kind, "route")
+  assert.strictEqual(evs[1].links[0].live, true)
+})
+
+test("schema: storm fixture replaces generation", () => {
+  const evs = Schema.parseStream(fixture("storm.ndjson"))
+  let state = Graph.empty()
+  for (const ev of evs) {
+    const next = Graph.applyEvent(state, ev)
+    if (next && !next.mismatch)
+      state = next
+  }
+  assert.strictEqual(state.gen, 2)
+  assert.strictEqual(state.nodes.length, 2)
+})
+
+test("pwdump: simple session", () => {
+  const g = PwDump.parse(fixture("pwdump-simple.json"))
+  assert.strictEqual(g.nodes.length, 3)
+  const sink = g.nodes.find((n) => n.id === 55)
+  assert.ok(sink)
+  assert.strictEqual(sink.kind, "sink")
+  assert.strictEqual(sink.isDefault, true)
+  assert.strictEqual(g.defaults.sink, 55)
+  const ff = g.nodes.find((n) => n.id === 77)
+  assert.strictEqual(ff.kind, "source")
+  assert.strictEqual(ff.state, "running")
+  assert.strictEqual(ff.identity, "Firefox|Stream/Output/Audio|0")
+  assert.ok(g.ports.some((p) => p.monitor))
+  assert.strictEqual(g.links.length, 2)
+  assert.strictEqual(g.links[0].kind, "route")
+  assert.strictEqual(g.links[0].live, true)
+  assert.ok(g.graph.latencyMs > 20 && g.graph.latencyMs < 23)
+})
+
+test("pwdump: chrome mess identities are stable per serial order", () => {
+  const g = PwDump.parse(fixture("pwdump-chrome-mess.json"))
+  const chrome = g.nodes.filter((n) => n.app === "Google Chrome")
+  assert.ok(chrome.length >= 3)
+  const outs = chrome.filter((n) => n.mediaClass === "Stream/Output/Audio")
+  outs.sort((a, b) => a.serial - b.serial)
+  assert.strictEqual(outs[0].identity, "Google Chrome|Stream/Output/Audio|0")
+  assert.strictEqual(outs[1].identity, "Google Chrome|Stream/Output/Audio|1")
+  const midi = g.nodes.find((n) => n.kind === "midi")
+  assert.ok(midi)
+  const dup = g.nodes.find((n) => n.kind === "filter")
+  assert.ok(dup)
+})
+
+test("pwdump: bluetooth / hotplug default sink flips", () => {
+  const before = PwDump.parse(fixture("pwdump-simple.json"))
+  const after = PwDump.parse(fixture("pwdump-hotplug-after.json"))
+  assert.strictEqual(before.defaults.sink, 55)
+  assert.strictEqual(after.defaults.sink, 66)
+  const d = Graph.diff(before, after, before.gen || 0, 10)
+  assert.ok(d.event)
+  assert.ok(d.n > 0)
+})
+
+test("pwdump: 60-node dump applies as one snapshot", () => {
+  const g = PwDump.parse(JSON.stringify(make60()))
+  assert.ok(g.nodes.length >= 59)
+  const ev = Graph.diff(null, g, 0, 10)
+  assert.strictEqual(ev.event.t, "snapshot")
+  const state = Graph.applyEvent(Graph.empty(), ev.event)
+  assert.ok(state.nodes.length >= 59)
+})
+
+test("graph: stale generation requests snapshot (mismatch)", () => {
+  let state = Graph.applyEvent(Graph.empty(), {
+    t: "snapshot",
+    gen: 4,
+    nodes: [{ id: 1, serial: 1, name: "a", nick: "a", app: "a", mediaClass: "Audio/Sink", kind: "sink", state: "idle", mute: false, volume: 1, isDefault: false, isCapture: false, isLoom: false, channels: [], identity: "a|Audio/Sink|0" }],
+    ports: [],
+    links: [],
+    defaults: {},
+    graph: {}
+  })
+  const r = Graph.applyEvent(state, { t: "diff", gen: 2, remNodes: [1] })
+  assert.strictEqual(r.mismatch, true)
+})
+
+test("graph: diff add/remove then apply", () => {
+  const a = Object.assign(Graph.empty(), PwDump.parse(fixture("pwdump-simple.json")), { gen: 1 })
+  const b = Object.assign(Graph.empty(), PwDump.parse(fixture("pwdump-hotplug-after.json")), { gen: 1 })
+  const d = Graph.diff(a, b, 1, 50)
+  assert.ok(d.event, "expected a diff or snapshot event")
+  const next = Graph.applyEvent(a, d.event)
+  assert.ok(next && next.nodes, "applyEvent should return a graph")
+  assert.ok(next.nodes.some((n) => n.id === 66))
+  assert.ok(next.defaults.sink === 66)
+})
+
+test("channelmap: stereo, a2dp, 5.1, ambiguous, mono fan-out", () => {
+  const stereo = jsonFix("channel-stereo.json")
+  const s = ChannelMap.autoMap(stereo.from, stereo.to)
+  assert.strictEqual(s.ok, true)
+  assert.strictEqual(s.pairs.length, 2)
+  assert.strictEqual(s.pairs[0].from, 1)
+  assert.strictEqual(s.pairs[0].to, 3)
+
+  const a2dp = jsonFix("channel-a2dp.json")
+  assert.strictEqual(ChannelMap.autoMap(a2dp.from, a2dp.to).ok, true)
+
+  const five = jsonFix("channel-51.json")
+  const f = ChannelMap.autoMap(five.from, five.to)
+  assert.strictEqual(f.ok, true)
+  assert.strictEqual(f.pairs.length, 6)
+
+  const amb = jsonFix("channel-ambiguous.json")
+  const a = ChannelMap.autoMap(amb.from, amb.to)
+  assert.strictEqual(a.ok, false)
+  assert.strictEqual(a.reason, "ambiguous")
+
+  const mono = ChannelMap.autoMap(
+    [{ id: 1, node: 1, dir: "out", channel: "MONO", monitor: false }],
+    [
+      { id: 2, node: 2, dir: "in", channel: "FL", monitor: false },
+      { id: 3, node: 2, dir: "in", channel: "FR", monitor: false }
+    ]
+  )
+  assert.strictEqual(mono.ok, true)
+  assert.strictEqual(mono.mode, "fan-out")
+  assert.strictEqual(mono.pairs.length, 2)
+})
+
+test("mute: BFS walks links and returns stream ids only", () => {
+  const g = PwDump.parse(fixture("pwdump-simple.json"))
+  const ids = Mute.streamIds(g.nodes, g.links, 55)
+  assert.ok(ids.indexOf(77) >= 0)
+  assert.ok(ids.indexOf(55) < 0)
+})
+
+test("storm: >10 events in 100ms flips", () => {
+  let t = Storm.create()
+  const now = 1000
+  t = Storm.ingest(t, now, 11)
+  assert.strictEqual(Storm.isStorm(t), true)
+  const c = Storm.consume(t, now)
+  assert.strictEqual(c.storm, true)
+  assert.ok(c.n >= 11)
+  assert.strictEqual(Storm.isStorm(t), false)
+})
+
+test("layout: sources left, sinks right, serial order, user pos wins", () => {
+  const g = PwDump.parse(fixture("pwdump-simple.json"))
+  const laid = Layout.layout(g.nodes.slice(), g.ports, {})
+  const src = laid.nodes.find((n) => n.id === 77)
+  const sink = laid.nodes.find((n) => n.id === 55)
+  assert.ok(src.x < sink.x)
+  const ident = src.identity
+  const user = {}
+  user[ident] = { x: 400, y: 220 }
+  const laid2 = Layout.layout(g.nodes.slice(), g.ports, user)
+  const src2 = laid2.nodes.find((n) => n.id === 77)
+  assert.strictEqual(src2.x, 400)
+  assert.strictEqual(src2.y, 220)
+  assert.strictEqual(src2.userPlaced, true)
+})
+
+test("simple view hides midi, duplex, monitors", () => {
+  const g = PwDump.parse(fixture("pwdump-chrome-mess.json"))
+  const full = SimpleView.filter(g, false)
+  const simple = SimpleView.filter(g, true)
+  assert.ok(full.nodes.some((n) => n.kind === "midi"))
+  assert.ok(!simple.nodes.some((n) => n.kind === "midi"))
+  assert.ok(!simple.nodes.some((n) => n.kind === "filter"))
+  assert.ok(!simple.ports.some((p) => p.monitor))
+  assert.ok(simple.nodes.some((n) => n.app === "Google Chrome"))
+  assert.strictEqual(SimpleView.activeStreamCount(g.nodes), 1)
+  assert.strictEqual(SimpleView.captureLive(g.nodes), true)
+})
+
+test("commands: move uses target metadata, spawn is Loom- prefixed", () => {
+  const mv = Commands.move(77, 55)
+  assert.strictEqual(mv.primary[0], "wpctl")
+  assert.strictEqual(mv.primary[1], "set-target")
+  assert.strictEqual(mv.fallback[0], "pw-metadata")
+  assert.strictEqual(mv.fallback[2], "target.object")
+  const sp = Commands.spawnSink("Recording")
+  assert.strictEqual(sp.sinkName, "Loom-Recording")
+  assert.ok(sp.primary.indexOf("module-null-sink") >= 0)
+  assert.strictEqual(Commands.sanitizeSinkName("alsa_output.pci"), "Loom-alsa_outputpci")
+  const denied = Commands.sanitizeSinkName("Loom-Mix")
+  assert.strictEqual(denied, "Loom-Mix")
+})
+
+test("commands: pactl short parsers find Loom sinks only", () => {
+  const sinks = Commands.parsePactlShortSinks(
+    "0\talsa_output.pci\tmodule-alsa-card.c\n1\tLoom-Mix\tmodule-null-sink.c\n"
+  )
+  const loom = Commands.loomSinks(sinks)
+  assert.strictEqual(loom.length, 1)
+  assert.strictEqual(loom[0].name, "Loom-Mix")
+  const mods = Commands.parsePactlShortModules(
+    "12\tmodule-null-sink\tsink_name=Loom-Mix\n13\tmodule-alsa-card\tdevice_id=0\n"
+  )
+  assert.strictEqual(Commands.loomModules(mods).length, 1)
+})
+
+test("positions: composite identity, persist roundtrip", () => {
+  const g = PwDump.parse(fixture("pwdump-chrome-mess.json"))
+  const a = g.nodes.find((n) => n.id === 101)
+  const b = g.nodes.find((n) => n.id === 102)
+  assert.notStrictEqual(a.identity, b.identity)
+  let st = Positions.emptyState()
+  st = Positions.set(st, a.identity, 10, 20)
+  const raw = Positions.serialize(st)
+  const loaded = Positions.load(raw)
+  const got = Positions.get(loaded, a.identity)
+  assert.ok(got, "expected persisted position for " + a.identity)
+  assert.strictEqual(got.x, 10)
+  assert.strictEqual(got.y, 20)
+})
+
+test("move stickiness contract: command is metadata not pw-link", () => {
+  const argv = Commands.argvFor("move", { stream: 88, target: 66 })
+  const joined = argv.primary.concat(argv.fallback || []).join(" ")
+  assert.ok(joined.indexOf("pw-link") < 0)
+  assert.ok(joined.indexOf("set-target") >= 0 || joined.indexOf("target.object") >= 0)
+})
+
+process.stdout.write("\n" + passed + " passed, " + failed + " failed\n")
+process.exit(failed ? 1 : 0)
