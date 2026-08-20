@@ -147,10 +147,10 @@ Item {
   function handleBodyReleased(nodeData) {
     if (root.dragKind === "node") {
       if (root.store) {
-        // Persist the drop into viewNodes + positions, then redraw wires
-        // from those same nodes. Relayout from the raw graph here would
-        // put cables back on the default columns.
-        root.store.persistPosition(nodeData.id, nodeData.x, nodeData.y, true)
+        // Item x/y were already persisted from onReleased via bodyDragged.
+        // Do not persist nodeData.x here — it can be the pre-drag layout
+        // and would snap the wires back while the box stays put.
+        root.store.saveState()
         root.store.dragging = false
       }
       var target = root.nodeAt(nodeData.x + nodeData.w / 2, nodeData.y + nodeData.h / 2)

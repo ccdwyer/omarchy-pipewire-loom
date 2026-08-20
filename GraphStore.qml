@@ -28,6 +28,7 @@ Item {
   property var wires: []
   property var positions: ({})
   property var loomModules: ({})
+  property var placedById: ({})
   property bool dragging: false
   property bool writingState: false
   property int canvasW: 960
@@ -191,11 +192,44 @@ Item {
     }
   }
 
+  function setPlaced(nodeId, x, y) {
+    var next = {}
+    var src = store.placedById || {}
+    var keys = Object.keys(src)
+    for (var i = 0; i < keys.length; i++)
+      next[keys[i]] = src[keys[i]]
+    next[String(nodeId)] = { x: x, y: y }
+    store.placedById = next
+  }
+
+  function layoutPositions() {
+    var pos = store.plainPositions()
+    var placed = store.placedById || {}
+    var keys = Object.keys(placed)
+    var i
+    for (i = 0; i < keys.length; i++) {
+      var p = placed[keys[i]]
+      if (!p || typeof p.x !== "number" || typeof p.y !== "number")
+        continue
+      pos["id:" + keys[i]] = { x: p.x, y: p.y }
+    }
+    var vn = store.viewNodes || []
+    for (i = 0; i < vn.length; i++) {
+      var n = vn[i]
+      if (!n || !n.userPlaced || typeof n.x !== "number" || typeof n.y !== "number")
+        continue
+      pos["id:" + n.id] = { x: n.x, y: n.y }
+      if (n.identity)
+        pos[n.identity] = { x: n.x, y: n.y }
+    }
+    return pos
+  }
+
   function rebuild() {
     if (store.dragging)
       return
     var filtered = SimpleView.filter(store.raw, store.simpleView)
-    var laid = Layout.layout(filtered.nodes, filtered.ports, store.plainPositions())
+    var laid = Layout.layout(filtered.nodes, filtered.ports, store.layoutPositions())
     store.viewNodes = laid.nodes
     store.viewPorts = filtered.ports
     store.viewLinks = filtered.links
@@ -477,6 +511,7 @@ Item {
     var node = store.nodeById(nodeId)
     if (!node)
       return
+    store.setPlaced(nodeId, x, y)
     var ident = node.identity || Positions.identityOf(node, store.raw.nodes)
     var cur = store.plainPositions()
     var next = Positions.set({ positions: cur, loomModules: store.loomModules }, ident, x, y)
