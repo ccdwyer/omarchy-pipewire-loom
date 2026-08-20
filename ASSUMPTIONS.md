@@ -9,14 +9,14 @@ Conservative choices where the Omarchy / Quickshell / PipeWire API was not 100% 
 - **`keepLoaded: true`** is set even though the only kind is bar-widget. The nested `PanelWindow` and the backend `Process` should survive close. Bar widgets on the bar are already kept loaded; this is belt-and-suspenders if the host honours the flag for nested windows.
 - **Injected properties** on load: `omarchyPath`, `shell`, `manifest`, `pluginRegistry`, `bar`. Same as first-party clipboard / clock. The widget still runs if some are missing.
 - **`IpcHandler` target** is the plugin id. Extra surface; `shell call` is the primary path. Typed return `string` matches desktop-undo.
-- **Theme tokens** `Color.menu.*`, `Color.accent`, `Style.*`, `Border.surfaceSpec`, `BarWidget`, `WidgetButton`, `BorderSurface`, `PanelWindow`, `WlrLayershell` — copied from first-party clipboard / undo and bound **directly** in `Theme.qml` so a theme switch updates live (200 ms `ColorAnimation`). A JS fallback wrapper would hide `Color.*` from QML's dependency tracker. Capture badge uses a fixed red (`Qt.rgba(0.86, 0.22, 0.22, 1)`) because no first-party danger token was confirmed. Reduced motion: `Style.reduceMotion` if present, else `OMARCHY_REDUCED_MOTION=1`.
+- **Theme tokens** `Color.menu.*`, `Color.accent`, `Style.*`, `Border.surfaceSpec`, `BarWidget`, `WidgetButton`, `BorderSurface`, `PanelWindow`, `WlrLayershell` — copied from first-party clipboard / undo. Bindings read `Color.menu.background` (etc.) only after a `Color && Color.menu` guard so a missing token cannot fail the load, while a present token still tracks for the 200 ms lerp. Capture badge uses a fixed red (`Qt.rgba(0.86, 0.22, 0.22, 1)`) because no first-party danger token was confirmed. Reduced motion: `Style.reduceMotion` if present, else `OMARCHY_REDUCED_MOTION=1`.
 - **Animations:** 150 ms add/remove, 200 ms color lerp on theme change, as specified.
 
 ## Quickshell
 
 - **`Process` + `StdioCollector` (waitForEnd)** is the documented mutation / oneshot path, copied from desktop-undo. Used for `pw-dump`, `wpctl`, `pw-link`, `pactl`, and `loomd --dump` / `--cmd`.
 - **`Process` stdin** (`stdinEnabled`, `write()`) is **not** clearly documented. Daemon mode tries `write()` inside try/catch and falls back to `--cmd` oneshots if it throws or is missing. `SplitParser.onRead` is used for daemon stdout; if that type is absent the host will fail to load `Backend.qml` — in that case the user still has the CLI path only after commenting the daemon `Process` out. Recorded so a later spike can swap in a Unix socket if needed.
-- **`FileView.setText` / `text()` / `atomicWrites`** for `state.json`. Mode 0600 is not documented on FileView; positions are not secret, so we do not chmod.
+- **`FileView.setText` / `text()` / `atomicWrites`** for `state.json`. Mode 0600 is not documented on FileView; positions are not secret, so we do not chmod. The parent directory is created with `mkdir -p` before `statePath` is set so a fresh machine does not silently fail persistence.
 - **`Repeater` over a JS array of objects** with `required property var modelData` — Qt 6 Quickshell. If a host only offers `ListModel`, GraphStore.revision already forces a rebuild; swapping to ListModel is local to GraphStore.
 - **`QtQuick.Shapes` `ShapePath` cubic + DashLine** for wires. Conservative: one Shape per wire, not a custom scene graph.
 - Do **not** invent PipeWire QML bindings. Everything goes through Process argv.
@@ -27,7 +27,7 @@ Conservative choices where the Omarchy / Quickshell / PipeWire API was not 100% 
 - **Mute:** `wpctl set-mute <id> 1|0` per stream in the BFS subgraph. Not SPA_PROP_mute param writes.
 - **Volume:** `wpctl set-volume <id> <0..1>`. Channel volumes in pw-dump are cubed; we cube-root for display. Reverse is wpctl's problem.
 - **Explicit links:** `pw-link -I <out> <in>` and `pw-link -d -I …`. Port ids, not names.
-- **Virtual sinks:** `pactl load-module module-null-sink sink_name=Loom-<name>`. Teardown only via the returned module id. Feature gated in spec on a day-3 stock-Omarchy proof — **that proof was not run here**. The verb ships; `virtualSinks: false` disables it. Orphan cleanup refuses anything whose name does not start with `Loom-`.
+- **Virtual sinks:** `pactl load-module module-null-sink sink_name=Loom-<name>`. Teardown only via the returned module id. Feature gated in spec on a day-3 stock-Omarchy proof — **that proof was not run here**, so `virtualSinks` defaults to **false** in the manifest, BarWidget, and GraphStore; `n` is a no-op toast until the user sets `virtualSinks: true`. `spawnSink` ok events carry `name` + `moduleId`; GraphStore persists them with `rememberModule`. Startup sends `cleanupOrphans` with `destroy: false` to adopt live `Loom-*` modules in both the QML CLI backend and `loomd`. User cleanup uses `destroy: true` and still refuses anything whose name does not start with `Loom-`.
 - **pw-dump JSON shape** varies (state as string vs `{name}`, props at top-level vs `info.props`, link keys hyphenated). `js/PwDump.js` and `src/loomd/src/graph.rs` accept both.
 - **Route vs raw:** PipeWire does not label session-manager links. Heuristic: stream → Audio/Sink|Source is `route`; anything else, and anything involving a Loom-* node, is `raw` (dashed).
 - **Live wire:** source node `state === "running"`. Not metering.
@@ -35,9 +35,10 @@ Conservative choices where the Omarchy / Quickshell / PipeWire API was not 100% 
 
 ## Helper
 
-- Spec language is Rust, dynamically linked against system libpipewire. The `pipewire` crate API is feature-gated (`--features pipewire`) and isolated in `src/loomd/src/native.rs`. `build.sh` tries that feature, then CLI-only, then wraps `compat/loom-cli.sh`. QML must pass the full suite with `loomd` deleted.
+- Spec language is Rust, dynamically linked against system libpipewire. The `pipewire` crate API is feature-gated (`--features pipewire`) and isolated in `src/loomd/src/native.rs`. `build.sh` tries that feature, then CLI-only. It does **not** install `compat/loom-cli.sh` as `bin/loomd` — that wrapper is not a daemon and would crash the QML hello/retry loop. Missing `bin/loomd` is the supported compat path. `compat/loom-cli.sh` implements `--dump` / `--cmd` oneshots and sanitizes sink names the same way as JS/Rust.
 - Native mode, if it compiles, subscribes to the registry and then re-parses via `pw-dump` rather than hand-walking SPA params (those APIs drift). Mutations still go through wpctl.
-- Default `loomd` (no flags): try native when built with the feature, else CLI poller. `--cli` forces the poller.
+- Default `loomd` (no flags): try native when built with the feature, else CLI poller. `--cli` forces the poller. The poller's change detector compares state, mute, volume, default device, and link live/muted — not just object ids.
+- Nested `Panel.qml` declares `moduleName: "io.github.chris.pipewire-loom"` to match the bar widget.
 
 ## Out of scope (intentional)
 

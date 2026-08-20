@@ -8,17 +8,17 @@ import qs.Commons
 QtObject {
   id: theme
 
-  // Live bindings — a function wrapper would hide Color.* from the
-  // dependency tracker and break the 200 ms theme lerp.
-  property color bg: Color.menu.background
-  property color surface: Color.menu.background
-  property color text: Color.menu.text
+  // Direct Color.* reads so theme changes still track. Guard the object
+  // first so a missing token cannot fail the load.
+  property color bg: (Color && Color.menu) ? Color.menu.background : "#141414"
+  property color surface: (Color && Color.menu) ? Color.menu.background : "#1c1c1c"
+  property color text: (Color && Color.menu) ? Color.menu.text : "#f2f2f2"
   property color muted: Qt.rgba(text.r, text.g, text.b, 0.55)
-  property color accent: Color.accent
-  property color border: Color.menu.border
-  property color scrim: Color.menu.scrim
-  property color selectedBg: Color.menu.selectedBackground
-  property color selectedText: Color.menu.selectedText
+  property color accent: Color ? Color.accent : "#c8a46b"
+  property color border: (Color && Color.menu) ? Color.menu.border : "#3a3a3a"
+  property color scrim: (Color && Color.menu && Color.menu.scrim !== undefined) ? Color.menu.scrim : "#000000aa"
+  property color selectedBg: (Color && Color.menu && Color.menu.selectedBackground !== undefined) ? Color.menu.selectedBackground : "#2a2a2a"
+  property color selectedText: (Color && Color.menu && Color.menu.selectedText !== undefined) ? Color.menu.selectedText : "#ffffff"
   property color danger: Qt.rgba(0.86, 0.22, 0.22, 1)
 
   property int radius: _num(function () { return Style.cornerRadius }, 10)

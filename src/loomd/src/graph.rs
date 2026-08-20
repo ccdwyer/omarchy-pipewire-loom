@@ -543,25 +543,101 @@ pub fn sanitize_sink_name(name: &str) -> String {
     }
 }
 
-pub fn change_count(a: &Graph, b: &Graph) -> usize {
-    fn ids(list: &[u32]) -> std::collections::HashSet<u32> {
-        list.iter().copied().collect()
+fn node_eq(a: &Node, b: &Node) -> bool {
+    a.id == b.id
+        && a.state == b.state
+        && a.mute == b.mute
+        && (a.volume - b.volume).abs() < 0.0005
+        && a.is_default == b.is_default
+        && a.nick == b.nick
+        && a.name == b.name
+        && a.media_class == b.media_class
+}
+
+fn port_eq(a: &Port, b: &Port) -> bool {
+    a.id == b.id && a.node == b.node && a.dir == b.dir && a.channel == b.channel && a.monitor == b.monitor
+}
+
+fn link_eq(a: &Link, b: &Link) -> bool {
+    a.id == b.id
+        && a.from == b.from
+        && a.to == b.to
+        && a.kind == b.kind
+        && a.live == b.live
+        && a.muted == b.muted
+}
+
+fn list_changes<T, FId, FEq>(old: &[T], new: &[T], id_of: FId, eq: FEq) -> usize
+where
+    FId: Fn(&T) -> u32,
+    FEq: Fn(&T, &T) -> bool,
+{
+    use std::collections::HashMap;
+    let old_by: HashMap<u32, &T> = old.iter().map(|x| (id_of(x), x)).collect();
+    let new_by: HashMap<u32, &T> = new.iter().map(|x| (id_of(x), x)).collect();
+    let mut n = 0;
+    for (id, b) in &new_by {
+        match old_by.get(id) {
+            None => n += 1,
+            Some(a) if !eq(a, b) => n += 1,
+            _ => {}
+        }
     }
-    let an: Vec<u32> = a.nodes.iter().map(|n| n.id).collect();
-    let bn: Vec<u32> = b.nodes.iter().map(|n| n.id).collect();
-    let ap: Vec<u32> = a.ports.iter().map(|n| n.id).collect();
-    let bp: Vec<u32> = b.ports.iter().map(|n| n.id).collect();
-    let al: Vec<u32> = a.links.iter().map(|n| n.id).collect();
-    let bl: Vec<u32> = b.links.iter().map(|n| n.id).collect();
-    let sa = ids(&an);
-    let sb = ids(&bn);
-    let pa = ids(&ap);
-    let pb = ids(&bp);
-    let la = ids(&al);
-    let lb = ids(&bl);
-    sa.symmetric_difference(&sb).count()
-        + pa.symmetric_difference(&pb).count()
-        + la.symmetric_difference(&lb).count()
+    for id in old_by.keys() {
+        if !new_by.contains_key(id) {
+            n += 1;
+        }
+    }
+    n
+}
+
+pub fn change_count(a: &Graph, b: &Graph) -> usize {
+    let mut n = list_changes(&a.nodes, &b.nodes, |x| x.id, node_eq)
+        + list_changes(&a.ports, &b.ports, |x| x.id, port_eq)
+        + list_changes(&a.links, &b.links, |x| x.id, link_eq);
+    if a.defaults.sink != b.defaults.sink
+        || a.defaults.source != b.defaults.source
+        || a.defaults.sink_name != b.defaults.sink_name
+        || a.defaults.source_name != b.defaults.source_name
+    {
+        n += 1;
+    }
+    n
+}
+
+pub fn loom_name_from_argument(argument: &str) -> Option<String> {
+    for tok in argument.split_whitespace() {
+        let name = tok.strip_prefix("sink_name=").unwrap_or(tok);
+        if name.starts_with("Loom-")
+            && name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+        {
+            return Some(name.to_string());
+        }
+    }
+    None
+}
+
+pub fn parse_loom_modules(text: &str) -> Vec<(u32, String)> {
+    let mut out = Vec::new();
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let mut cols = line.splitn(3, |c: char| c.is_whitespace());
+        let id = cols.next().and_then(|s| s.parse::<u32>().ok());
+        let name = cols.next().unwrap_or("");
+        let arg = cols.next().unwrap_or("");
+        if !name.contains("module-null-sink") {
+            continue;
+        }
+        if let (Some(id), Some(loom)) = (id, loom_name_from_argument(arg)) {
+            out.push((id, loom));
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -682,6 +758,66 @@ mod tests {
         });
         let ids = stream_ids(&g, 2);
         assert_eq!(ids, vec![1]);
+    }
+
+    #[test]
+    fn change_count_sees_state_mute_volume_default() {
+        let mut a = Graph::default();
+        a.nodes.push(Node {
+            id: 1,
+            serial: 1,
+            name: "ff".into(),
+            nick: "Firefox".into(),
+            app: "Firefox".into(),
+            media_class: "Stream/Output/Audio".into(),
+            kind: "source".into(),
+            state: "idle".into(),
+            mute: false,
+            volume: 1.0,
+            is_default: false,
+            is_capture: false,
+            is_loom: false,
+            channels: vec![],
+            identity: "Firefox|Stream/Output/Audio|0".into(),
+            module_id: None,
+        });
+        let mut b = a.clone();
+        assert_eq!(change_count(&a, &b), 0);
+        b.nodes[0].state = "running".into();
+        assert!(change_count(&a, &b) >= 1);
+        b = a.clone();
+        b.nodes[0].mute = true;
+        assert!(change_count(&a, &b) >= 1);
+        b = a.clone();
+        b.nodes[0].volume = 0.4;
+        assert!(change_count(&a, &b) >= 1);
+        b = a.clone();
+        b.defaults.sink = Some(55);
+        assert!(change_count(&a, &b) >= 1);
+        b = a.clone();
+        b.links.push(Link {
+            id: 9,
+            from: 1,
+            to: 2,
+            from_node: 1,
+            to_node: 2,
+            kind: "route".into(),
+            live: false,
+            muted: false,
+            latency_ms: None,
+        });
+        let mut c = b.clone();
+        c.links[0].live = true;
+        assert!(change_count(&b, &c) >= 1);
+    }
+
+    #[test]
+    fn loom_module_parse() {
+        let text = "12\tmodule-null-sink\tsink_name=Loom-Mix\n13\tmodule-alsa-card\tdevice_id=0\n";
+        let mods = parse_loom_modules(text);
+        assert_eq!(mods.len(), 1);
+        assert_eq!(mods[0].0, 12);
+        assert_eq!(mods[0].1, "Loom-Mix");
     }
 
     #[test]

@@ -366,6 +366,53 @@ test("positions: composite identity, persist roundtrip", () => {
   assert.strictEqual(got.y, 20)
 })
 
+test("graph: same-id state/mute/volume/default emit a change", () => {
+  const a = PwDump.parse(fixture("pwdump-simple.json"))
+  a.gen = 1
+  const bRunning = JSON.parse(JSON.stringify(a))
+  const ff = bRunning.nodes.find((n) => n.id === 77)
+  ff.state = "idle"
+  const d = Graph.diff(a, bRunning, 1, 50)
+  assert.ok(d.event, "state change must produce an event")
+  assert.ok(d.n >= 1)
+  const muted = JSON.parse(JSON.stringify(a))
+  muted.nodes.find((n) => n.id === 77).mute = true
+  assert.ok(Graph.diff(a, muted, 1, 50).n >= 1)
+  const vol = JSON.parse(JSON.stringify(a))
+  vol.nodes.find((n) => n.id === 55).volume = 0.1
+  assert.ok(Graph.diff(a, vol, 1, 50).n >= 1)
+  const def = JSON.parse(JSON.stringify(a))
+  def.defaults.sink = 999
+  assert.ok(Graph.diff(a, def, 1, 50).event)
+})
+
+test("commands: loom name extract + reconcile adopt", () => {
+  assert.strictEqual(Commands.loomNameFromArgument("sink_name=Loom-Mix"), "Loom-Mix")
+  assert.strictEqual(Commands.loomNameFromArgument("device_id=0"), "")
+  const mods = Commands.parsePactlShortModules(
+    "12\tmodule-null-sink\tsink_name=Loom-Mix\n13\tmodule-alsa-card\tdevice_id=0\n14\tmodule-null-sink\tsink_name=alsa_output\n"
+  )
+  const plan = Commands.reconcileLoomModules(mods, false)
+  assert.strictEqual(plan.adopted.length, 1)
+  assert.strictEqual(plan.adopted[0].name, "Loom-Mix")
+  assert.strictEqual(String(plan.adopted[0].moduleId), "12")
+})
+
+test("schema: spawnSink ok carries name and moduleId", () => {
+  const ev = Schema.parseLine(
+    '{"t":"ok","id":"1","op":"spawnSink","name":"Loom-Mix","moduleId":12}'
+  )
+  assert.strictEqual(ev.t, "ok")
+  assert.strictEqual(ev.op, "spawnSink")
+  assert.strictEqual(ev.name, "Loom-Mix")
+  assert.strictEqual(ev.moduleId, 12)
+})
+
+test("manifest: virtualSinks defaults false", () => {
+  const man = JSON.parse(fs.readFileSync(path.join(ROOT, "manifest.json"), "utf8"))
+  assert.strictEqual(man.barWidget.defaults.virtualSinks, false)
+})
+
 test("move stickiness contract: command is metadata not pw-link", () => {
   const argv = Commands.argvFor("move", { stream: 88, target: 66 })
   const joined = argv.primary.concat(argv.fallback || []).join(" ")

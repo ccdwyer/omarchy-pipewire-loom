@@ -76,6 +76,8 @@ Command acknowledgements. `id` echoes the command id.
 
 ```json
 {"t":"ok","id":"a1b2","op":"move"}
+{"t":"ok","id":"a1b2","op":"spawnSink","name":"Loom-Mix","moduleId":12}
+{"t":"ok","id":"a1b2","op":"cleanupOrphans","destroy":false,"adopted":[{"name":"Loom-Mix","moduleId":12}],"removed":[]}
 {"t":"err","id":"a1b2","op":"move","err":"gone"}
 ```
 
@@ -154,7 +156,7 @@ Every command has `op` and `id` (string, UI-generated).
 {"op":"muteSubgraph","id":"9","node":77,"mute":true}
 {"op":"spawnSink","id":"10","name":"Recording"}
 {"op":"destroySink","id":"11","name":"Loom-Recording"}
-{"op":"cleanupOrphans","id":"12"}
+{"op":"cleanupOrphans","id":"12","destroy":false}
 ```
 
 ### Semantics
@@ -168,7 +170,11 @@ Every command has `op` and `id` (string, UI-generated).
 - **`mute` / `muteSubgraph`**: `wpctl set-mute <id> 1|0`. Subgraph is BFS over
   current links; mute is applied to **stream** nodes only.
 - **`spawnSink`**: `pactl load-module module-null-sink sink_name=Loom-<name>`.
-  Never touches a device whose name does not start with `Loom-`.
+  Never touches a device whose name does not start with `Loom-`. Success
+  includes `name` and `moduleId` so the UI can persist teardown.
+- **`cleanupOrphans`**: `destroy:false` (startup) lists live `Loom-*`
+  null-sink modules as `adopted`. `destroy:true` unloads only those modules
+  and returns them as `removed`.
 - Stale ids: `{"err":"gone"}`.
 
 ## Storm rule

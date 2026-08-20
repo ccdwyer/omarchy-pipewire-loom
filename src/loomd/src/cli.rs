@@ -210,7 +210,35 @@ pub fn handle_command(g: &Graph, cmd: &Command) -> Value {
             }
             schema::err(&cmd.id, "destroySink", "denied", "missing module id")
         }
-        "cleanupOrphans" => schema::ok(&cmd.id, "cleanupOrphans"),
+        "cleanupOrphans" => {
+            let listing = match run_cmd(&["pactl", "list", "short", "modules"]) {
+                Ok(t) => t,
+                Err(e) => return schema::err(&cmd.id, "cleanupOrphans", "exec", &e),
+            };
+            let live = crate::graph::parse_loom_modules(&listing);
+            let destroy = cmd.destroy.unwrap_or(false);
+            let mut adopted = Vec::new();
+            let mut removed = Vec::new();
+            for (id, name) in live {
+                if destroy {
+                    let sid = id.to_string();
+                    if let Err(e) = run_cmd(&["pactl", "unload-module", &sid]) {
+                        return schema::err(&cmd.id, "cleanupOrphans", "exec", &e);
+                    }
+                    removed.push(serde_json::json!({ "name": name, "moduleId": id }));
+                } else {
+                    adopted.push(serde_json::json!({ "name": name, "moduleId": id }));
+                }
+            }
+            serde_json::json!({
+                "t": "ok",
+                "id": cmd.id,
+                "op": "cleanupOrphans",
+                "destroy": destroy,
+                "adopted": adopted,
+                "removed": removed
+            })
+        }
         other => schema::err(&cmd.id, other, "unsupported", other),
     }
 }

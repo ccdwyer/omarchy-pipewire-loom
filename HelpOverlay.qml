@@ -33,7 +33,7 @@ Rectangle {
         "Enter               start / complete an explicit link",
         "Esc                 cancel drag, or close",
         "m                   mute / unmute subgraph (wpctl)",
-        "n                   spawn Loom-<name> null sink",
+        "n                   spawn Loom sink (off unless virtualSinks)",
         "x / Backspace       unlink selected · destroy Loom sink",
         "+ / -               volume on selection",
         "Drag node → sink    move (WirePlumber target.object)",

@@ -17,7 +17,7 @@
     "defaults": {
       "simpleView": true,
       "pollMs": 1000,
-      "virtualSinks": true
+      "virtualSinks": false
     },
     "schema": [
       { "key": "simpleView", "type": "boolean", "label": "Simple view (streams + devices)" },

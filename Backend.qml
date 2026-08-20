@@ -79,6 +79,8 @@ Item {
         root.store.compatMode = !!ev.compat || ev.backend === "cli"
       if (root.store)
         root.store.backendName = ev.backend || root.mode
+      if (root.store && typeof root.store.maybeAdopt === "function")
+        Qt.callLater(function () { root.store.maybeAdopt() })
     }
     if (root.store)
       root.store.applyEvent(ev)
@@ -154,8 +156,9 @@ Item {
       return
     if (root.mode === "loomd-oneshot" && root.loomdPresent) {
       root.enqueue([root.loomdBin, "--dump"], function (text) {
-        root.ingestText(text)
-        if (text && text.indexOf("\"t\":\"snapshot\"") < 0)
+        if (text && String(text).indexOf("\"t\":\"snapshot\"") >= 0)
+          root.ingestText(text)
+        else
           root.ingestDump(text)
       })
       return
@@ -207,10 +210,13 @@ Item {
           return
         }
         var moduleId = parseInt(String(text || "").trim(), 10)
-        if (root.store && isFinite(moduleId))
-          root.store.rememberModule(spec.sinkName, moduleId)
-        if (root.store)
-          root.store.applyEvent(Schema.makeOk(cmd.id, "spawnSink"))
+        if (root.store) {
+          var ev = Schema.makeOk(cmd.id, "spawnSink")
+          ev.name = spec.sinkName
+          if (isFinite(moduleId))
+            ev.moduleId = moduleId
+          root.store.applyEvent(ev)
+        }
         Qt.callLater(function () { root.pollNow() })
       })
       return
@@ -225,22 +231,24 @@ Item {
       return
     }
     if (op === "cleanupOrphans") {
+      var destroy = cmd.destroy === true
       root.enqueue(Commands.listModules().primary, function (text) {
-        var mods = Commands.loomModules(Commands.parsePactlShortModules(text))
-        var known = (root.store && root.store.loomModules) || {}
-        for (var i = 0; i < mods.length; i++) {
-          var arg = String(mods[i].argument || "")
-          var adopted = false
-          var keys = Object.keys(known)
-          for (var k = 0; k < keys.length; k++) {
-            if (arg.indexOf(keys[k]) >= 0)
-              adopted = true
-          }
-          if (!adopted && arg.indexOf("Loom-") >= 0)
-            root.enqueue(Commands.destroyModule(mods[i].id).primary, null)
+        var plan = Commands.reconcileLoomModules(Commands.parsePactlShortModules(text), destroy)
+        var adopted = plan.adopted || []
+        var removed = []
+        if (destroy) {
+          for (var i = 0; i < adopted.length; i++)
+            root.enqueue(Commands.destroyModule(adopted[i].moduleId).primary, null)
+          removed = adopted
+          adopted = []
         }
-        if (root.store)
-          root.store.applyEvent(Schema.makeOk(cmd.id, "cleanupOrphans"))
+        if (root.store) {
+          var ev = Schema.makeOk(cmd.id, "cleanupOrphans")
+          ev.destroy = destroy
+          ev.adopted = adopted
+          ev.removed = removed
+          root.store.applyEvent(ev)
+        }
         Qt.callLater(function () { root.pollNow() })
       })
       return

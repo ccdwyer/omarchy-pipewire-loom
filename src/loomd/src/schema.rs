@@ -132,6 +132,8 @@ pub struct Command {
     pub module_id: Option<u32>,
     #[serde(default)]
     pub nodes: Option<Vec<u32>>,
+    #[serde(default)]
+    pub destroy: Option<bool>,
 }
 
 pub fn hello(backend: &str, compat: bool) -> Value {

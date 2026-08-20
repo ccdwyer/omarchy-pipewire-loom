@@ -19,6 +19,7 @@ Item {
   signal bodyDragged(var nodeData, real nx, real ny)
   signal bodyReleased(var nodeData)
   signal portPressed(var port, real gx, real gy)
+  signal portReleased(var port, real gx, real gy)
   signal droppedOn(var nodeData)
 
   width: nodeData && nodeData.w ? nodeData.w : 196
@@ -195,6 +196,10 @@ Item {
           var p = node.mapToItem(node.parent, width / 2, height / 2)
           node.portPressed(modelData, p.x, p.y)
         }
+        onReleased: {
+          var p = node.mapToItem(node.parent, width / 2, height / 2)
+          node.portReleased(modelData, p.x, p.y)
+        }
       }
     }
   }
@@ -224,6 +229,10 @@ Item {
         onPressed: {
           var p = node.mapToItem(node.parent, width / 2, height / 2)
           node.portPressed(modelData, p.x, p.y)
+        }
+        onReleased: {
+          var p = node.mapToItem(node.parent, width / 2, height / 2)
+          node.portReleased(modelData, p.x, p.y)
         }
       }
     }

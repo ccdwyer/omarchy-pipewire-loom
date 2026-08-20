@@ -11,7 +11,7 @@ BarWidget {
   // Inline shell.json settings (Quattro: no config file of our own).
   property bool simpleView: true
   property int pollMs: 1000
-  property bool virtualSinks: true
+  property bool virtualSinks: false
 
   property var shell: null
   property var manifest: null
@@ -53,9 +53,18 @@ BarWidget {
 
   Theme { id: theme }
 
+  Process {
+    id: mkdirProc
+    command: ["mkdir", "-p", root.stateHome]
+    running: true
+    onExited: {
+      store.statePath = root.stateHome + "/state.json"
+    }
+  }
+
   GraphStore {
     id: store
-    statePath: root.stateHome + "/state.json"
+    statePath: ""
     simpleView: root.simpleView
     virtualSinks: root.virtualSinks
     backend: backend

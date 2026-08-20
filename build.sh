@@ -12,13 +12,9 @@ mkdir -p "$OUT"
 chmod +x "$ROOT/compat/loom-cli.sh" 2>/dev/null || true
 
 if ! command -v cargo >/dev/null 2>&1; then
-  echo "build.sh: cargo not found; installing POSIX fallback as bin/loomd" >&2
-  {
-    echo "#!/bin/sh"
-    echo "exec \"$ROOT/compat/loom-cli.sh\" \"\$@\""
-  } > "$OUT/loomd"
-  chmod +x "$OUT/loomd"
-  echo "build.sh: wrote $OUT/loomd (shell fallback)"
+  echo "build.sh: cargo not found; not installing a fake bin/loomd" >&2
+  echo "build.sh: QML will use in-process pw-dump + wpctl (compat mode)"
+  echo "build.sh: oneshot verbs: $ROOT/compat/loom-cli.sh --dump | --cmd JSON"
   exit 0
 fi
 
@@ -36,13 +32,9 @@ else
 fi
 
 if [ -z "$built" ] || [ ! -x "$built" ]; then
-  echo "build.sh: cargo build failed; installing POSIX fallback as bin/loomd" >&2
-  {
-    echo "#!/bin/sh"
-    echo "exec \"$ROOT/compat/loom-cli.sh\" \"\$@\""
-  } > "$OUT/loomd"
-  chmod +x "$OUT/loomd"
-  echo "build.sh: wrote $OUT/loomd (shell fallback)"
+  echo "build.sh: cargo build failed; not installing a fake bin/loomd" >&2
+  echo "build.sh: QML will use in-process pw-dump + wpctl (compat mode)"
+  echo "build.sh: oneshot verbs: $ROOT/compat/loom-cli.sh --dump | --cmd JSON"
   exit 0
 fi
 

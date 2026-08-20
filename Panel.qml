@@ -5,10 +5,12 @@ import Quickshell.Io
 import Quickshell.Wayland
 import qs.Commons
 import qs.Ui
+import "js/Layout.js" as Layout
 
 Item {
   id: root
 
+  property string moduleName: "io.github.chris.pipewire-loom"
   property var store: null
   property var theme: null
   property var shell: null
@@ -68,6 +70,51 @@ Item {
         return n
     }
     return null
+  }
+
+  function portAt(gx, gy) {
+    if (!root.store)
+      return null
+    var nodes = root.store.viewNodes || []
+    var ports = root.store.viewPorts || []
+    var byNode = {}
+    var i
+    for (i = 0; i < nodes.length; i++)
+      byNode[nodes[i].id] = nodes[i]
+    var best = null
+    var bestD = 14
+    for (i = 0; i < ports.length; i++) {
+      var p = ports[i]
+      if (p.monitor)
+        continue
+      var node = byNode[p.node]
+      if (!node)
+        continue
+      var count = Layout.countDir(node, ports, p.dir)
+      var idx = Layout.indexOfPort(node, ports, p.id, p.dir)
+      var a = Layout.portAnchor(node, p, idx, count, p.dir)
+      var dx = gx - a.x
+      var dy = gy - a.y
+      var d = Math.sqrt(dx * dx + dy * dy)
+      if (d <= bestD) {
+        bestD = d
+        best = p
+      }
+    }
+    return best
+  }
+
+  function handlePortReleased(gx, gy) {
+    var p = root.portAt(gx, gy)
+    if (p && (!root.dragPort || p.id !== root.dragPort.id)) {
+      root.finishLinkToPort(p)
+      return
+    }
+    var hit = root.nodeAt(gx, gy)
+    if (hit)
+      root.finishLinkToNode(hit)
+    else
+      root.cancelDrag()
   }
 
   function handleBodyPressed(nodeData) {
@@ -248,7 +295,10 @@ Item {
       return
     }
     if (ch === "n" || k === Qt.Key_N) {
-      root.store.spawnSink(root.lastNameHint)
+      if (root.store.virtualSinks)
+        root.store.spawnSink(root.lastNameHint)
+      else
+        root.store.emitToast("virtual sinks disabled", "info")
       event.accepted = true
       return
     }
@@ -378,7 +428,9 @@ Item {
           Item { width: 8; height: 1 }
 
           Text {
-            text: "Tab view  ·  m mute  ·  n sink  ·  ? keys  ·  Esc"
+            text: "Tab view  ·  m mute"
+                   + (root.store && root.store.virtualSinks ? "  ·  n sink" : "")
+                   + "  ·  ? keys  ·  Esc"
             color: root.theme ? root.theme.muted : "#888"
             font.family: root.theme ? root.theme.fontFamily : "sans-serif"
             font.pixelSize: root.theme ? root.theme.fontSmall : 11
@@ -491,6 +543,10 @@ Item {
                   onBodyDragged: function (n, nx, ny) { root.handleBodyDragged(n, nx, ny) }
                   onBodyReleased: function (n) { root.handleBodyReleased(n) }
                   onPortPressed: function (p, gx, gy) { root.handlePortPressed(p, gx, gy) }
+                  onPortReleased: function (p, gx, gy) {
+                    if (root.dragKind === "port" || root.dragKind === "link-wait")
+                      root.handlePortReleased(gx, gy)
+                  }
                   onDroppedOn: function (n) {
                     if (root.dragKind === "port")
                       root.finishLinkToNode(n)
@@ -510,11 +566,7 @@ Item {
                   root.ghostY2 = ev.y
                 }
                 onReleased: function (ev) {
-                  var hit = root.nodeAt(ev.x, ev.y)
-                  if (hit)
-                    root.finishLinkToNode(hit)
-                  else
-                    root.cancelDrag()
+                  root.handlePortReleased(ev.x, ev.y)
                 }
               }
             }

@@ -18,7 +18,7 @@ Item {
   property var backend: null
   property string statePath: ""
   property bool simpleView: true
-  property bool virtualSinks: true
+  property bool virtualSinks: false
 
   property int gen: 0
   property var raw: ({ nodes: [], ports: [], links: [], defaults: ({}), graph: ({}) })
@@ -52,8 +52,44 @@ Item {
   signal highlight(var ids)
   signal gone()
 
+  property bool stateLoaded: false
+  property bool adoptedOnce: false
+
   function bump() {
     store.revision += 1
+  }
+
+  function onOk(ev) {
+    if (!ev)
+      return
+    if (ev.op === "spawnSink") {
+      var nm = ev.name || ev.sinkName
+      var mid = ev.moduleId !== undefined ? ev.moduleId : ev.module_id
+      if (nm && mid !== undefined && mid !== null && String(mid).length)
+        store.rememberModule(String(nm), mid)
+      return
+    }
+    if (ev.op === "cleanupOrphans") {
+      var i
+      if (ev.destroy || (ev.removed && ev.removed.length && !(ev.adopted && ev.adopted.length))) {
+        var nextMods = {}
+        if (ev.adopted && ev.adopted.length) {
+          for (i = 0; i < ev.adopted.length; i++) {
+            if (ev.adopted[i].name && ev.adopted[i].moduleId !== undefined)
+              nextMods[ev.adopted[i].name] = ev.adopted[i].moduleId
+          }
+        }
+        store.loomModules = nextMods
+        store.saveState()
+        return
+      }
+      if (ev.adopted && ev.adopted.length) {
+        for (i = 0; i < ev.adopted.length; i++) {
+          if (ev.adopted[i].name && ev.adopted[i].moduleId !== undefined)
+            store.rememberModule(ev.adopted[i].name, ev.adopted[i].moduleId)
+        }
+      }
+    }
   }
 
   function emitToast(msg, level) {
@@ -94,8 +130,10 @@ Item {
       }
       return
     }
-    if (ev.t === "ok")
+    if (ev.t === "ok") {
+      store.onOk(ev)
       return
+    }
     if (ev.t === "storm")
       return
 
@@ -366,8 +404,6 @@ Item {
     store.lastMutedOn = turnOn
     store.lastMutedRoot = id
     store.send(Schema.makeCommand("muteSubgraph", { node: id, mute: turnOn, nodes: ids }))
-    for (var i = 0; i < ids.length; i++)
-      store.send(Schema.makeCommand("mute", { node: ids[i], mute: turnOn }))
     return "ok"
   }
 
@@ -391,8 +427,13 @@ Item {
     return "ok"
   }
 
+  function adoptLoomSinks() {
+    store.send(Schema.makeCommand("cleanupOrphans", { destroy: false }))
+    return "ok"
+  }
+
   function cleanupOrphans() {
-    store.send(Schema.makeCommand("cleanupOrphans", {}))
+    store.send(Schema.makeCommand("cleanupOrphans", { destroy: true }))
     return "ok"
   }
 
@@ -411,7 +452,12 @@ Item {
   }
 
   function rememberModule(name, moduleId) {
-    store.loomModules[name] = moduleId
+    var next = {}
+    var keys = Object.keys(store.loomModules || {})
+    for (var i = 0; i < keys.length; i++)
+      next[keys[i]] = store.loomModules[keys[i]]
+    next[name] = moduleId
+    store.loomModules = next
     store.saveState()
   }
 
@@ -419,7 +465,16 @@ Item {
     var s = Positions.load(text)
     store.positions = s.positions || {}
     store.loomModules = s.loomModules || {}
+    store.stateLoaded = true
     store.rebuild()
+    store.maybeAdopt()
+  }
+
+  function maybeAdopt() {
+    if (store.adoptedOnce || !store.stateLoaded || !store.statePath)
+      return
+    store.adoptedOnce = true
+    store.adoptLoomSinks()
   }
 
   function saveState() {
@@ -437,7 +492,11 @@ Item {
     printErrors: false
     watchChanges: false
     onLoaded: store.loadStateText(text())
-    onLoadFailed: store.loadStateText("{}")
+    onLoadFailed: {
+      if (!store.statePath)
+        return
+      store.loadStateText("{}")
+    }
   }
 
   onSimpleViewChanged: store.rebuild()

@@ -122,6 +122,22 @@ function loomSinks(sinks) {
     return out
 }
 
+function loomNameFromArgument(argument) {
+    var arg = String(argument || "")
+    var m = arg.match(/sink_name=([A-Za-z0-9_-]+)/)
+    if (m && String(m[1]).indexOf("Loom-") === 0)
+        return m[1]
+    var parts = arg.split(/\s+/)
+    for (var i = 0; i < parts.length; i++) {
+        var tok = parts[i]
+        if (tok.indexOf("sink_name=") === 0)
+            tok = tok.slice(10)
+        if (tok.indexOf("Loom-") === 0)
+            return tok
+    }
+    return ""
+}
+
 function loomModules(modules) {
     var out = []
     for (var i = 0; i < (modules || []).length; i++) {
@@ -131,6 +147,18 @@ function loomModules(modules) {
             out.push(m)
     }
     return out
+}
+
+function reconcileLoomModules(modules, destroy) {
+    var live = loomModules(modules)
+    var adopted = []
+    for (var i = 0; i < live.length; i++) {
+        var name = loomNameFromArgument(live[i].argument)
+        if (!name)
+            continue
+        adopted.push({ name: name, moduleId: live[i].id })
+    }
+    return { adopted: adopted, destroy: !!destroy }
 }
 
 function argvFor(op, cmd) {
