@@ -144,6 +144,7 @@ Item {
     Text {
       width: parent.width
       text: (nodeData && (nodeData.nick || nodeData.app || nodeData.name)) || "node"
+      textFormat: Text.PlainText
       color: node.text
       elide: Text.ElideRight
       font.family: theme ? theme.fontFamily : "sans-serif"
@@ -168,6 +169,7 @@ Item {
           bits.push("muted")
         return bits.join(" · ")
       }
+      textFormat: Text.PlainText
       color: node.muted
       elide: Text.ElideRight
       font.family: theme ? theme.fontFamily : "sans-serif"
