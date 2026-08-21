@@ -40,12 +40,14 @@ BarWidget {
       u = u.slice(0, u.length - 1)
     return u
   }
-  readonly property string home: Quickshell.env("HOME") || "/tmp"
+  readonly property string home: Quickshell.env("HOME") || ""
   readonly property string stateHome: {
     var xdg = Quickshell.env("XDG_STATE_HOME")
     if (xdg && xdg.length)
       return xdg + "/pipewire-loom"
-    return home + "/.local/state/pipewire-loom"
+    if (home.length)
+      return home + "/.local/state/pipewire-loom"
+    return ""
   }
 
   readonly property bool opened: panelLoader.item ? !!panelLoader.item.opened : false
@@ -187,10 +189,11 @@ BarWidget {
 
   Process {
     id: mkdirProc
-    command: ["mkdir", "-p", root.stateHome]
-    running: true
+    command: root.stateHome.length ? ["mkdir", "-p", root.stateHome] : ["true"]
+    running: root.stateHome.length > 0
     onExited: function() {
-      store.statePath = root.stateHome + "/state.json"
+      if (root.stateHome.length)
+        store.statePath = root.stateHome + "/state.json"
     }
   }
 
